@@ -1,5 +1,5 @@
 # from utils import query_utils 
-from server.database.db_engine import db
+from server.database.db_engine import DATABASE_ENGINE as db
 
 
 def select(query: str):

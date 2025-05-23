@@ -3,11 +3,8 @@ import csv
 
 
 class DB:
-
-    data_file = "/home/phuongnam/Documents/Intern-K-Learning/DB_project/Server-Database-Engine/src/server/database/storage/data.csv"
-
-    def __init__(self) -> None:
-        with open(self.data_file, 'r') as file:
+    def __init__(self, data_file = "./server/database/storage/data.csv") -> None:
+        with open(data_file, 'r') as file:
             reader = csv.DictReader(file)
             self.data = [row for row in reader]
 
@@ -20,4 +17,4 @@ class DB:
         return self.data 
 
 
-db = DB() 
+DATABASE_ENGINE = DB() 

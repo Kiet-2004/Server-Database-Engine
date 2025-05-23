@@ -1,12 +1,31 @@
+import csv
+from pydantic import BaseModel
 
-
-
+class User(BaseModel):
+    user_name: str
+    password: str
 
 class UserDB:
-    file_name = ""
+    def __init__(self, data_file = "./server/database/storage/user.csv") -> None:
+        self.data_file = data_file
+        with open(self.data_file, 'r') as file:
+            reader = csv.DictReader(file)
+            self.data = [User(user_name=row['user_name'], password=row['password']) for row in reader]
+            file.close()
 
-    def get_user(id):
-        pass
-    def add_user():
-        pass
+    def get_user(self, user_name: str) -> User | None:
+        for user in self.data:
+            if user.user_name == user_name:
+                return user
+        return None
     
+    def add_user(self, user_name: str, password: str) -> User | None:
+        user = User(user_name=user_name, password=password)
+        self.data.append(user)
+        with open(self.data_file, 'a') as file:
+            writer = csv.DictWriter(file, fieldnames=["user_name", "password"])
+            writer.writerow({"user_name": user.user_name, "password": user.password})
+            file.close()
+        return user
+
+USER_DATABASE = UserDB()
