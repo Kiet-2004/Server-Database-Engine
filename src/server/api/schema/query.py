@@ -4,7 +4,7 @@ from fastapi import  Query
 
 
 class ResponseQuery(BaseModel):
-    response: List[ Any]
+    response: List[Any]
 
 class RequestQuery(BaseModel):
     query: str  
