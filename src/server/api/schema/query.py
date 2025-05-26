@@ -7,4 +7,4 @@ class ResponseQuery(BaseModel):
     response: List[Any]
 
 class RequestQuery(BaseModel):
-    query: str  
+    query: str
