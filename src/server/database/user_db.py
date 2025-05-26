@@ -1,13 +1,15 @@
 import csv
 from pydantic import BaseModel
-
+import os
+from server.config import settings
 class User(BaseModel):
     user_name: str
     password: str
 
 class UserDB:
-    def __init__(self, data_file = "./server/database/storage/user.csv") -> None:
-        self.data_file = data_file
+    def __init__(self, data_file = "user.csv") -> None:
+
+        self.data_file = os.path.join(settings.STORAGE_FOLDER, data_file)
         with open(self.data_file, 'r') as file:
             reader = csv.DictReader(file)
             self.data = [User(user_name=row['user_name'], password=row['password']) for row in reader]
