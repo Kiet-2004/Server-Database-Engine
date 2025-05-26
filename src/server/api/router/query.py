@@ -2,7 +2,7 @@
 import fastapi
 from fastapi import Depends
 from server.api.schema.query import RequestQuery, ResponseQuery
-from server.middleware.auth import authe
+from server.middleware.auth import get_current_user
 from server.controllers import db_controlller
 from server.utils.exceptions.http.exc_400 import http_exc_400_query_empty_bad_request
 
@@ -12,7 +12,7 @@ router = fastapi.APIRouter(prefix="/queries", tags=["queries"])
 @router.post(
     path="/",
     response_model=ResponseQuery,
-    dependencies=[Depends(authe)],
+    dependencies=[Depends(get_current_user)],
 )
 def query(
     request: RequestQuery

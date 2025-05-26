@@ -32,9 +32,13 @@ class Table:
     def select(self, columns):
         if columns is None or len(columns) == 0:
             columns = [col.name for col in self.columns]
-        return [
-            {col: row[col] for col in columns}
-            for row in self.rows
-        ]
+        rows = []
+        for row in self.rows:
+            rows.append({col: row[col] for col in columns})
+        # return [
+        #     {col: row[col] for col in columns}
+        #     for row in self.rows
+        # ]
+        return rows
         # return [row.to_dict() for row in rows]
     

@@ -4,14 +4,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY=os.getenv("SECRET_KEY")
-...
-...
-CSV_FILE = os.getenv("CSV_FILE")
+# SECRET_KEY=os.getenv("SECRET_KEY")
+# ALGORITHM=os.getenv("ALGORITHM")
+# ACCESS_TOKEN_EXPIRE_MINUTES=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+SECRET_KEY="abc"
+ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=5
+
 
 SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 SERVER_FOLDER = os.path.dirname(SETTINGS_DIR)
 
 STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
-print(STORAGE_FOLDER)

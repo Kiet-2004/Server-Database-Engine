@@ -6,10 +6,6 @@ class UserCreate(BaseModel):
     user_name: str | None = None
     password: str = Field(min_length=8, max_length=40)
 
-
-class UserLoginRequest(BaseModel):
-    user_name: str | None = None
-    password: str = Field(min_length=8, max_length=40)
-
 class UserLoginResponse(BaseModel):
-    token: str
+    access_token: str
+    token_type: str = "bearer"

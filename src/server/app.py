@@ -2,8 +2,6 @@
 
 from server.api.main import router
 import fastapi
-from server.database.db_engine import engine
-from server.config.settings import CSV_FILE
 
 def initialize_backend_application() -> fastapi.FastAPI:
     app = fastapi.FastAPI() 
