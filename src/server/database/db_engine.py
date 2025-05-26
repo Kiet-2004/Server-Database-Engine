@@ -1,4 +1,5 @@
 from server.database.entities.db import DB
+from server.config.settings import DB_NAMES
 
 from typing import List, Dict, Any
 import csv
@@ -10,7 +11,7 @@ import sqlite3
 
 class DatabaseEngine:
     def __init__(self):
-        self.db = DB('CompanyDB')
+        self.db_names = DB_NAMES
 
     def load_db(self, db_name: str):
         self.db = DB(db_name)

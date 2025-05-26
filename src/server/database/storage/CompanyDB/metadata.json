@@ -1,0 +1,59 @@
+{
+  "tables": [
+    {
+      "name": "employees",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "primary_key": true,
+          "nullable": false,
+          "auto_increment": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "nullable": false
+        }
+      ],
+      "row_count": 4
+    },
+    {
+      "name": "tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "primary_key": true,
+          "nullable": false
+        },
+        {
+          "name": "task",
+          "type": "string",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "nullable": false
+        },
+        {
+          "name": "hours",
+          "type": "float",
+          "nullable": false
+        }
+      ],
+      "row_count": 5
+    }
+  ]
+}

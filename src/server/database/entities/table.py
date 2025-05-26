@@ -5,25 +5,17 @@ from server.database.entities.row import Row
 import os
 import json
 import csv
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class Table:
-    def __init__(self, table_name: str, db_name: str):
+    def __init__(self, table_name: str, db_name: str, columns: List[Dict]):
         self.name = table_name
-        self.csv_file = os.path.join(STORAGE_FOLDER, db_name, table_name, f'{table_name}.csv')
-        self.meta_file = os.path.join(STORAGE_FOLDER, db_name, table_name, 'metadata.json')
-        self.columns = []
+        self.csv_file = os.path.join(STORAGE_FOLDER, db_name, f'{table_name}.csv')
+        self.columns = [Column.from_dict(column) for column in columns]
         self.rows = []
-        self.num_rows = 0
         self._load()
 
     def _load(self):
-        # load metadata:
-        with open(self.meta_file) as f:
-            meta_data = json.load(f)
-            for column in meta_data['columns']:
-                self.columns.append(Column.from_dict(column))
-            self.num_rows = meta_data['row_count']
         with open(self.csv_file, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
