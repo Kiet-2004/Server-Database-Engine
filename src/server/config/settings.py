@@ -10,7 +10,8 @@ load_dotenv()
 SECRET_KEY="abc"
 ALGORITHM="HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES=5
-...
+
+
 SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 SERVER_FOLDER = os.path.dirname(SETTINGS_DIR)

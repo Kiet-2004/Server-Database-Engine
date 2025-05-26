@@ -4,7 +4,7 @@ from server.api.main import router
 import fastapi
 
 def initialize_backend_application() -> fastapi.FastAPI:
-    app = fastapi.FastAPI()
+    app = fastapi.FastAPI() 
 
     app.include_router(router)
 

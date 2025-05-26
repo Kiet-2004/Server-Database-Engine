@@ -4,7 +4,6 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from server.api.schema.user import UserCreate, UserLoginResponse
-from server.controllers.db_controlller import select
 from server.controllers.user_controller import create_user, login_user
 # from fastapi.security import OAuth2PasswordRequestForm
 

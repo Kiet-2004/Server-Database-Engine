@@ -1,0 +1,6 @@
+id,task,status,hours
+1,Complete project report,completed,5.5
+2,Attend team meeting,pending,1.0
+3,Review code changes,in-progress,2.0
+4,Update documentation,completed,3.0
+5,Prepare presentation slides,pending,4.0

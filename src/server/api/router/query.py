@@ -2,9 +2,9 @@
 import fastapi
 from fastapi import Depends
 from server.api.schema.query import RequestQuery, ResponseQuery
-from server.middleware.auth import * 
-from server.controllers.db_controlller import select
-
+from server.middleware.auth import get_current_user
+from server.controllers import db_controlller
+from server.utils.exceptions.http.exc_400 import http_exc_400_query_empty_bad_request
 
 router = fastapi.APIRouter(prefix="/queries", tags=["queries"])
 
@@ -17,9 +17,15 @@ router = fastapi.APIRouter(prefix="/queries", tags=["queries"])
 def query(
     request: RequestQuery
 ):
+    """
+    check empty query
+    """
+    print(request)
+    if not request.query:
+        raise http_exc_400_query_empty_bad_request()
     
-    user_query = request.query
-    data = select(user_query)
+    user_query = request.query.lower()
+    data = db_controlller.query(user_query)
 
     return {
         "response": data

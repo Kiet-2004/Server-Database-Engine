@@ -1,0 +1,27 @@
+{
+
+    "columns": [
+        {
+            "name": "id",
+            "type": "integer",
+            "primary_key": true,
+            "nullable": false
+        },
+        {
+            "name": "task",
+            "type": "string",
+            "nullable": false
+        },
+        {
+            "name": "status",
+            "type": "string",
+            "nullable": false
+        },
+        {
+            "name": "hours",
+            "type": "float",
+            "nullable": false
+        }
+    ],
+    "row_count": 5
+}

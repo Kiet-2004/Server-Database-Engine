@@ -13,7 +13,6 @@ class UserDB:
         with open(self.data_file, 'r') as file:
             reader = csv.DictReader(file)
             self.data = [User(user_name=row['user_name'], password=row['password']) for row in reader]
-            file.close()
 
     def get_user(self, user_name: str) -> User | None:
         for user in self.data:
