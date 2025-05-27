@@ -9,7 +9,7 @@ load_dotenv()
 # ACCESS_TOKEN_EXPIRE_MINUTES=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY="abc"
 ALGORITHM="HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES=5
+ACCESS_TOKEN_EXPIRE_MINUTES=25
 
 
 SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,3 +21,5 @@ STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
 DB_NAMES = [
    'CompanyDB'
 ]
+
+BATCH_SIZE = 10

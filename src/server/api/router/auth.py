@@ -33,6 +33,6 @@ def connect(db_name: str, form: OAuth2PasswordRequestForm = Depends()):
     check empty
     """
     jwt_payload = login_user(user_name=form.username, password=form.password)
-    engine.load_db(db_name)
+    engine.load_db(form.username, db_name)
     return jwt_payload
 

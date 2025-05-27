@@ -1,59 +1,41 @@
 {
-  "tables": [
+  "employees": [
     {
-      "name": "employees",
-      "columns": [
-        {
-          "name": "id",
-          "type": "integer",
-          "primary_key": true,
-          "nullable": false,
-          "auto_increment": true
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "nullable": false
-        },
-        {
-          "name": "phone",
-          "type": "string",
-          "nullable": false
-        },
-        {
-          "name": "email",
-          "type": "string",
-          "nullable": false
-        }
-      ],
-      "row_count": 4
+      "name": "id",
+      "type": "integer"
     },
     {
-      "name": "tasks",
-      "columns": [
-        {
-          "name": "id",
-          "type": "integer",
-          "primary_key": true,
-          "nullable": false
-        },
-        {
-          "name": "task",
-          "type": "string",
-          "nullable": false
-        },
-        {
-          "name": "status",
-          "type": "string",
-          "nullable": false
-        },
-        {
-          "name": "hours",
-          "type": "float",
-          "nullable": false
-        }
-      ],
-      "row_count": 5
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "phone",
+      "type": "string"
+    },
+    {
+      "name": "email",
+      "type": "string"
+    }
+  ],
+  "task": [
+    {
+      "name": "id",
+      "type": "integer"
+
+    },  
+    {
+      "name": "task",
+      "type": "string"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "hours",
+      "type": "float"
     }
   ]
 }
+
+
