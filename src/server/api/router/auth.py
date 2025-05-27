@@ -3,9 +3,10 @@ import fastapi
 from fastapi import Depends, Body
 from fastapi.security import OAuth2PasswordRequestForm
 
-from server.api.schema.user import UserCreate, UserLoginResponse
+from server.api.schema.user import UserCreate, UserLoginResponse, RefreshRequest
 from server.controllers.user_controller import create_user, login_user
 from server.database.db_engine import engine
+from server.middleware.auth import Token, refresh_access_token
 # from fastapi.security import OAuth2PasswordRequestForm
 
 
@@ -35,4 +36,8 @@ def connect(db_name: str, form: OAuth2PasswordRequestForm = Depends()):
     jwt_payload = login_user(user_name=form.username, password=form.password)
     engine.load_db(db_name)
     return jwt_payload
+
+@router.post("/refresh", response_model=Token)
+def refresh(request: RefreshRequest):
+    return refresh_access_token(request.access_token, request.refresh_token)
 

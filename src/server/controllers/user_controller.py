@@ -35,6 +35,6 @@ def login_user(user_name, password):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user_name}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = create_access_token(data={"sub": user_name})
+    refresh_token = create_refresh_token(data={"sub": user_name})
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
