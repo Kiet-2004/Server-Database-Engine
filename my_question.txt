@@ -1,0 +1,12 @@
+1. Người dùng có thể truyền vào 1 câu query mà kiểu gồm nhiều query nhỏ được phân tách nhau bởi dấu ; không?
+2. Select ở đây chỉ là select * hoặc là column thôi phải không?
+3. Có xử lý Alias không? (Quy định là muốn dùng Alias phải có từ khoá AS)
+4. Có cần xử lý dạng datetime không?
+
+Ờm, giờ thế này, tôi note lại đây một số thứ để limit lại việc parsing câu query, ông coi thử vậy có đúng ý ông không nhé!
+1. Kiểu dữ liệu của các cột trong các table chỉ giới hạn lại ở 3 kiểu: int, string, float
+2. select thì sẽ hỗ trợ: select *, select column, select table.column, select db.table.column
+3. where thì sẽ chỉ support các phép so sánh gồm >, <, =, <=, >=, !=, <>, các toán tử tính toán gồm +, -, *, /, %, các toán tử logic gồm AND, OR, NOT
+4. Không support các keyword khác select, from, where (như group by, order by,...), không support subquery, alias, không support các phép toán như count, min, max
+5. Cho phép join bảng nhưng phải join bằng keyword "where", và không support self-join cho không support alias.
+6. Nếu 1 table có tên cột là 1 trong các keyword select, from, where thì sẽ báo lỗi.
