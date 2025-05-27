@@ -8,4 +8,9 @@ class UserCreate(BaseModel):
 
 class UserLoginResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+class RefreshRequest(BaseModel):
+    access_token: str
+    refresh_token: str
