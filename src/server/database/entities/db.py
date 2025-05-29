@@ -43,7 +43,7 @@ class DB:
             table = Table(
                 table_name = table_name,
                 db_name = self.db_name,
-                columns_metedata = columns_metadata
+                columns_metadata = columns_metadata
             )
             self.tables[table_name] = table
         except Exception as e:

@@ -1,6 +1,8 @@
 from server.config.settings import STORAGE_FOLDER, BATCH_SIZE
 import os
-import csv
+import asyncio
+import json
+import aiofiles
 from typing import Any
 from server.utils.query_utils import ExpressionNode
 
@@ -82,35 +84,32 @@ class Table:
             case _:
                 raise ValueError(f"Unsupported operator: {val}")
 
-    def filter(self, rows: list[dict[str, str]], columns: list[str], ast: ExpressionNode) -> list[dict[str, Any]]:
-        selected = []
+    def filter(self, row: dict[str, str], columns: list[str], ast: ExpressionNode) -> list[dict[str, Any]]:
 
-        for row in rows:
-            casted_row = {
-                col: self.cast(col, val) for col, val in row.items()
-            }
+        
+        casted_row = {
+            col: self.cast(col, val) for col, val in row.items()
+        }
 
-            if ast is None or self.evaluate_condition(casted_row, ast):
-                if columns == ["*"]:
-                    selected.append(casted_row)
-                else:
-                    selected.append({col: casted_row[col] for col in columns})
+        if ast is None or self.evaluate_condition(casted_row, ast):
+            if columns == ["*"]:
+                return casted_row
+            else:
+                return {col: casted_row[col] for col in columns}
 
-        return selected
 
-    def query(self, columns: list[str], ast: ExpressionNode = None):
-        if columns == ["*"]:
-            columns = [meta['name'] for meta in self.column_metadata]
+    async def query(self, columns: list[str], ast=None):
+            if columns == ["*"]:
+                columns = [meta['name'] for meta in self.column_metadata]
 
-        with open(self.csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            rows = []
-
-            for row in reader:
-                rows.append(row)
-                if len(rows) >= BATCH_SIZE:
-                    yield self.filter(rows, columns, ast)
-                    rows = []
-
-            if rows:
-                yield self.filter(rows, columns, ast)
+            # read the CSV file in batches
+            async with aiofiles.open(self.csv_file, 'r') as f:
+                # Read the header line first
+                header_line = await f.readline()
+                headers = [h.strip() for h in header_line.strip().split(',')]
+                async for line in f:
+                    values = [v.strip() for v in line.strip().split(',')]
+                    row_dict = dict(zip(headers, values))
+                    # await asyncio.sleep(1)
+                    filtered = self.filter(row_dict, columns, ast)
+                    yield json.dumps(filtered)

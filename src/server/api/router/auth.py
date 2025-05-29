@@ -5,9 +5,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from server.api.schema.user import UserCreate, UserLoginResponse, RefreshRequest
 from server.controllers.user_controller import create_user, login_user
-from server.database.db_engine import engine
-from server.middleware.auth import Token, refresh_access_token
-# from fastapi.security import OAuth2PasswordRequestForm
+from server.controllers import db_controlller
+from server.middleware.auth import Token, refresh_access_token, get_current_user
+from server.utils.exceptions import dpapi2_exception
 
 
 router = fastapi.APIRouter(prefix="/auth", tags=["Authentication"])
@@ -34,10 +34,30 @@ def connect(db_name: str, form: OAuth2PasswordRequestForm = Depends()):
     check empty
     """
     jwt_payload = login_user(user_name=form.username, password=form.password)
-    engine.load_db(form.username, db_name)
+    try:
+        db_controlller.connect_user(user_name=form.username, db_name=db_name)
+    except dpapi2_exception.DatabaseError as e:
+        raise fastapi.HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
     return jwt_payload
 
 @router.post("/refresh", response_model=Token)
 def refresh(request: RefreshRequest):
     return refresh_access_token(request.access_token, request.refresh_token)
+
+@router.get('/disconnect')
+def disconnect(current_user = Depends(get_current_user)):
+    """
+    Close the database connection for the given user.
+    """
+    try:
+        return db_controlller.disconnect_user(current_user.user_name)
+    except dpapi2_exception.DatabaseError as e:
+        return fastapi.HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
 

@@ -182,3 +182,4 @@ cython_debug/
 dbengine-env/
 .gitignore
 
+.vscode/

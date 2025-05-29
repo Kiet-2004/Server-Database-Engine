@@ -43,3 +43,22 @@ def query(user_name: str, query: str):
     ) as e:
         # Re-raise any database-related exceptions.
         raise e
+    
+def disconnect_user(user_name: str):
+    """
+    Disconnect a user from the database by removing their connection.
+    """
+    try:
+        return engine.disconnect_user(user_name)
+    except dpapi2_exception.DatabaseError as e:
+        raise dpapi2_exception.DatabaseError(str(e))
+
+def connect_user(user_name: str, db_name: str):
+    """
+    Connect a user to a database.
+    """
+    try:
+        engine.load_db(user_name=user_name, db_name=db_name)
+        return {"message": f"User {user_name} connected to database {db_name} successfully."}
+    except dpapi2_exception.DatabaseError as e:
+        raise dpapi2_exception.DatabaseError(str(e))

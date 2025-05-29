@@ -33,7 +33,17 @@ class DatabaseEngine:
             raise dpapi2_exception.InternalError(f"Database '{db_name}' not loaded in memory.")
         
         return self.db_pool[db_name]
-
+    
+    def disconnect_user(self, user_name: str):
+        """
+        Disconnect a user from the database by removing their connection.
+        """
+        if user_name in self.user_db:
+            del self.user_db[user_name]
+            return {"message": f"User {user_name} disconnected successfully."}
+        else:
+            raise dpapi2_exception.DatabaseError(f"User {user_name} is not connected to any database.")
+        
     def query(self, user_name: str, columns: list[str], table_name: str, ast: AST = None):
         try:
             # Truy cập DB và metadata ngay từ đầu
