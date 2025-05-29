@@ -67,7 +67,10 @@ class Cursor:
 
         with open(self.last_result_file, 'r') as file:
             csv_reader = csv.reader(file)
-            self.headers = next(csv_reader)
+            try:
+                self.headers = next(csv_reader)
+            except StopIteration:
+                return        
             for row in csv_reader:
                 yield dict(zip(self.headers, row))
         
