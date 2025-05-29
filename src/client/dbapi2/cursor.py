@@ -44,7 +44,7 @@ class Cursor:
         if response.status_code == 200:
             temp = response.json()
             self.last_result_file = f"{path}/last_result.csv"
-            with open(self.last_result_file, 'w') as file:
+            with open(self.last_result_file, 'w', newline = "") as file:
                 csv_writer = csv.writer(file)
                 flag = True
                 for item in temp:

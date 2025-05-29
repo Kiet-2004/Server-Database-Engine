@@ -314,7 +314,11 @@ class LogicalValidator:
         for table in tables:
             if table not in db_meta:
                 raise dpapi2_exception.ProgrammingError(f"Table '{table}' not found in database '{db_name}'.")
-            self.tables[table] = (db_name, db_meta[table])  # Store for later use
+
+            # Convert schema list to dict: {column_name: type}
+            schema_list = db_meta[table]
+            schema_dict = {col["name"]: col["type"] for col in schema_list}
+            self.tables[table] = (db_name, schema_dict)  # Use dict instead of list
 
     def _validate_column(self, col: str) -> str:
         parts = col.split('.')
@@ -350,7 +354,11 @@ class LogicalValidator:
 
     def _get_column_type(self, full_col: str) -> str:
         db, table, col = full_col.split(".")
-        return self.metadata[db][table][col]
+        schema_list = self.metadata[db][table]
+        schema = {c["name"]: c["type"] for c in schema_list}
+        if col not in schema:
+            raise dpapi2_exception.ProgrammingError(f"Column '{col}' not found in schema of {db}.{table}")
+        return schema[col]
 
     def _validate_condition_ast(self, node: ExpressionNode) -> str:
         if node.left is None and node.right is None:
