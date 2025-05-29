@@ -30,6 +30,16 @@ class DatabaseEngine:
         # load the database
         self.user_db[user_name] = db_name
 
+    def disconnect_user(self, user_name: str):
+        """
+        Disconnect a user from the database by removing their connection.
+        """
+        if user_name in self.user_db:
+            del self.user_db[user_name]
+            return {"message": f"User {user_name} disconnected successfully."}
+        else:
+            raise dpapi2_exception.DatabaseError(f"User {user_name} is not connected to any database.")
+        
     def get_db(self, user_name: str) -> DB:
         
         if user_name not in self.user_db:

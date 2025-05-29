@@ -28,7 +28,7 @@ class Table:
             async for line in f:
                 values = [v.strip() for v in line.strip().split(',')]
                 row_dict = dict(zip(headers, values))
-                await asyncio.sleep(1)
+                # await asyncio.sleep(1)
                 filtered = self.filter(row_dict, columns, ast)
                 yield json.dumps(filtered)
         
