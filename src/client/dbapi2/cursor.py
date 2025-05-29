@@ -17,7 +17,7 @@ class Cursor:
         })
         self.db_name = db_name
 
-        self.last_result = None
+        self.last_result_file = None
         self.index = 0
 
     def refresh(self) -> None:
@@ -36,18 +36,19 @@ class Cursor:
         else:
             raise Exception(f"Failed to refresh tokens: {response.status_code} {response.text}")
         
-    def execute(self, query, path) -> None:
+    def execute(self, query, path="") -> None:
         response = self.session.post(f'{self.url}/queries/', json={
             'db_name': self.db_name,
             'query': query
         })
         if response.status_code == 200:
-            self.last_result = response.json()
+            temp = response.json()
             self.index = 0
-            with open(f"{path}/last_result.csv", 'w') as file:
+            self.last_result_file = f"{path}/last_result.csv"
+            with open(self.last_result_file, 'w') as file:
                 csv_writer = csv.writer(file)
                 flag = True
-                for item in self.last_result:
+                for item in temp:
                     if flag:
                         csv_writer.writerow(item.keys())
                         flag = False
@@ -59,29 +60,36 @@ class Cursor:
         else:
             raise Exception(f"Query execution failed: {response. status_code} {response.text}")
         
-    def fetchone(self):
-        if self.last_result is None:
+    def fetchone(self) -> dict | None:
+        if self.last_result_file is None:
             raise Exception("No query executed yet.")
         
-        if self.index < len(self.last_result):
-            result = self.last_result[self.index]
-            self.index += 1
-            return result
-        else:
-            return None
+        with open(self.last_result_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            headers = next(csv_reader)
+            for i, row in enumerate(csv_reader):
+                if i == self.index:
+                    self.index += 1
+                    return dict(zip(headers, row))
+        return None
         
-    def fetchall(self, limit=None):
-        if self.last_result is None:
+    def fetchall(self, limit=None) -> list[dict] | None:
+        if self.last_result_file is None:
             raise Exception("No query executed yet.")
         
-        if limit is None:
-            return self.last_result
-        else:
-            return self.last_result[:limit]
+        results = []
+        with open(self.last_result_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            headers = next(csv_reader)
+            for i, row in enumerate(csv_reader):
+                if limit is not None and i >= limit:
+                    break
+                results.append(dict(zip(headers, row)))
+        return None
         
-    def close(self):
+    def close(self) -> None:
         self.session.close()
-        self.last_result = None
+        self.last_result_file = None
         self.index = 0
         self.access_token = None
         self.refresh_token = None
