@@ -2,13 +2,13 @@ import requests
 import csv 
 
 class Cursor:
-    def __init__(self, url, access_token, refresh_token, db_name) -> None:
+    def __init__(self, url: str, access_token: str, refresh_token: str, db_name: str, session: requests.Session) -> None:
         self.url = url
         self.headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
-        self.session = requests.Session()
+        self.session = session
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.session.headers.update({
@@ -16,12 +16,8 @@ class Cursor:
             'Refresh-Token': self.refresh_token
         })
         self.db_name = db_name
-
         self.last_result_file = None
         self.index = 0
-
-    def __del__(self):
-        self.close()
 
     def refresh(self) -> None:
         response = self.session.post(f'{self.url}/auth/refresh', json={
@@ -89,17 +85,4 @@ class Cursor:
                     break
                 results.append(dict(zip(headers, row)))
         return None
-        
-    def close(self) -> None:
-        if self.access_token is None or self.refresh_token is None:
-            raise Exception("No active session to close.")
-        session_close_response = self.session.get(f'{self.url}/auth/disconnect')
-        if session_close_response.status_code != 200:
-            raise Exception(f"Failed to close session: {session_close_response.status_code} {session_close_response.text}")
-        
-        self.session.close()
-        self.last_result_file = None
-        self.index = 0
-        self.access_token = None
-        self.refresh_token = None
-        self.session.headers.clear()
+    
