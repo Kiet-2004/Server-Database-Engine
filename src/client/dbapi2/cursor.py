@@ -17,7 +17,8 @@ class Cursor:
         })
         self.db_name = db_name
         self.last_result_file = None
-        self.index = 0
+        self.array_iterator = None
+        self.headers = None
 
     def refresh(self) -> None:
         response = self.session.post(f'{self.url}/auth/refresh', json={
@@ -35,14 +36,13 @@ class Cursor:
         else:
             raise Exception(f"Failed to refresh tokens: {response.status_code} {response.text}")
         
-    def execute(self, query, path="") -> None:
+    def execute(self, query, path: str = ".") -> None:
         response = self.session.post(f'{self.url}/queries/', json={
             'db_name': self.db_name,
             'query': query
         })
         if response.status_code == 200:
             temp = response.json()
-            self.index = 0
             self.last_result_file = f"{path}/last_result.csv"
             with open(self.last_result_file, 'w') as file:
                 csv_writer = csv.writer(file)
@@ -52,6 +52,8 @@ class Cursor:
                         csv_writer.writerow(item.keys())
                         flag = False
                     csv_writer.writerow(item.values())
+            
+            self.array_iterator = self._file_generator()
                     
         elif response.status_code == 401:
             self.refresh()
@@ -59,30 +61,47 @@ class Cursor:
         else:
             raise Exception(f"Query execution failed: {response. status_code} {response.text}")
         
+    def _file_generator(self):
+        if self.last_result_file is None:
+            raise Exception("No query executed yet.")
+
+        with open(self.last_result_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            self.headers = next(csv_reader)
+            for row in csv_reader:
+                yield dict(zip(self.headers, row))
+        
     def fetchone(self) -> dict | None:
         if self.last_result_file is None:
             raise Exception("No query executed yet.")
-        
-        with open(self.last_result_file, 'r') as file:
-            csv_reader = csv.reader(file)
-            headers = next(csv_reader)
-            for i, row in enumerate(csv_reader):
-                if i == self.index:
-                    self.index += 1
-                    return dict(zip(headers, row))
-        return None
-        
-    def fetchall(self, limit=None) -> list[dict] | None:
+        try:
+            result = next(self.array_iterator)
+            return result
+        except StopIteration:
+            return None
+    
+    def fetchmany(self, size: int = 1) -> list[dict] | None:
         if self.last_result_file is None:
             raise Exception("No query executed yet.")
         
         results = []
-        with open(self.last_result_file, 'r') as file:
-            csv_reader = csv.reader(file)
-            headers = next(csv_reader)
-            for i, row in enumerate(csv_reader):
-                if limit is not None and i >= limit:
-                    break
-                results.append(dict(zip(headers, row)))
-        return None
+        try:
+            for _ in range(size):
+                result = next(self.array_iterator)
+                results.append(result)
+            return results
+        except StopIteration:
+            return results if results else None
+
+    def fetchall(self) -> list[dict] | None:
+        if self.last_result_file is None:
+            raise Exception("No query executed yet.")
+        
+        results = []
+        try:
+            while True:
+                result = next(self.array_iterator)
+                results.append(result)
+        except StopIteration:
+            return results if results else None
     
