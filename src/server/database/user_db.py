@@ -24,7 +24,7 @@ class UserDB:
     def add_user(self, user_name: str, password: str) -> User | None:
         user = User(user_name=user_name, hashed_password=password)
         self.data.append(user)
-        with open(self.data_file, 'a') as file:
+        with open(self.data_file, 'a', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=["user_name", "hashed_password"])
             writer.writerow({"user_name": user.user_name, "hashed_password": user.hashed_password})
             file.close()
