@@ -33,8 +33,12 @@ def extract_tokens(parsed):
 
 
 def query(user_name: str, query: str):
-
     parsed = sqlparse.parse(query)[0]
     columns, table, where_clause = extract_tokens(parsed)
 
-    return engine.query(user_name=user_name, table_name=table, columns=columns)
+    return engine.query(
+        user_name=user_name,
+        table_name=table,
+        columns=columns if columns else None,
+        ast=where_clause
+    )

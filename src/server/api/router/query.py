@@ -11,7 +11,7 @@ router = fastapi.APIRouter(prefix="/queries", tags=["queries"])
 
 
 @router.post(path="/")
-def query(
+async def query(
     request: RequestQuery,
     current_user = Depends(get_current_user)
 ):
@@ -19,17 +19,20 @@ def query(
         raise http_exc_400_query_empty_bad_request()
 
     user_query = request.query.lower()
-    results_iterator = db_controlller.query(current_user.user_name, user_query)
+    query_stream = db_controlller.query(
+            user_name=current_user.user_name,
+            query=user_query,
+        ) 
 
-    def json_stream(data_iter: Iterator[Dict]):
+    async def stream_response():
         yield '['
         first = True
-        for item in data_iter:
+        async for row in query_stream:
             if not first:
-                yield ','
+                yield ',\n'
             else:
                 first = False
-            yield json.dumps(item)
+            yield row
         yield ']'
 
-    return StreamingResponse(json_stream(results_iterator), media_type="application/json")
+    return StreamingResponse(stream_response(), media_type="application/json")

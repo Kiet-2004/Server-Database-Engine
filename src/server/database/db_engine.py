@@ -39,20 +39,16 @@ class DatabaseEngine:
         return self.db_pool[db_name]
 
 
-    def metatdata(self, user_name: str):
-        metadata = self.get_db(user_name).meta_data
-        return metadata
-    
-
     def query(self, user_name: str, table_name: str, columns=None, ast=None):
         db = self.get_db(user_name)
         table = db.get_table(table_name)
-        
+
         if not table:
-            raise dpapi2_exception.DatabaseError(f"Table {table_name} not found in database {db.db_name}.")
-        
-        rows = table.query(columns, ast)
-        return rows
+            raise dpapi2_exception.DatabaseError(
+                f"Table {table_name} not found in database {db.db_name}."
+            )
+
+        return table.query(columns=columns, ast=ast)
         
 
 
