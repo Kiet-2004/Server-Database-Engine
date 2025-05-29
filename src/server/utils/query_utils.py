@@ -375,7 +375,7 @@ class LogicalValidator:
                 except dpapi2_exception.ProgrammingError:
                     return 'string'  # Assume it's a string literal
             elif isinstance(node.value, (int, float)):
-                return 'int' if isinstance(node.value, int) else 'float'
+                return 'integer' if isinstance(node.value, int) else 'float'
             else:
                 raise dpapi2_exception.ProgrammingError(f"Unknown literal or identifier: {node.value}")
 
@@ -396,15 +396,15 @@ class LogicalValidator:
 
             elif node.value in ('=', '!=', '<>', '<', '>', '<=', '>='):
                 if left_type != right_type and not (
-                    {'int', 'float'} == {left_type, right_type}
+                    {'integer', 'float'} == {left_type, right_type}
                 ):
                     raise dpapi2_exception.ProgrammingError(f"Incompatible types in comparison: {left_type} {node.value} {right_type}")
                 return 'bool'
 
             elif node.value in ('+', '-', '*', '/', '%'):
-                if left_type not in ('int', 'float') or right_type not in ('int', 'float'):
+                if left_type not in ('integer', 'float') or right_type not in ('integer', 'float'):
                     raise dpapi2_exception.ProgrammingError(f"Arithmetic operator '{node.value}' requires numeric operands")
-                return 'float' if 'float' in (left_type, right_type) else 'int'
+                return 'float' if 'float' in (left_type, right_type) else 'integer'
 
             else:
                 raise dpapi2_exception.ProgrammingError(f"Unknown operator: {node.value}")
