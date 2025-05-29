@@ -67,9 +67,12 @@ class Cursor:
 
         with open(self.last_result_file, 'r') as file:
             csv_reader = csv.reader(file)
-            self.headers = next(csv_reader)
-            for row in csv_reader:
-                yield dict(zip(self.headers, row))
+            try:
+                self.headers = next(csv_reader)
+                for row in csv_reader:
+                    yield dict(zip(self.headers, row))
+            except StopIteration:
+                yield from []
         
     def fetchone(self) -> dict | None:
         if self.last_result_file is None:
