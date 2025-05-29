@@ -96,6 +96,8 @@ class Table:
                 return casted_row
             else:
                 return {col: casted_row[col] for col in columns}
+        else:
+            return None
 
 
     async def query(self, columns: list[str], ast=None):
@@ -111,5 +113,7 @@ class Table:
                     values = [v.strip() for v in line.strip().split(',')]
                     row_dict = dict(zip(headers, values))
                     # await asyncio.sleep(1)
+
                     filtered = self.filter(row_dict, columns, ast)
-                    yield json.dumps(filtered)
+                    if filtered is not None:
+                        yield json.dumps(filtered)
