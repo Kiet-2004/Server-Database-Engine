@@ -20,6 +20,9 @@ class Cursor:
         self.last_result_file = None
         self.index = 0
 
+    def __del__(self):
+        self.close()
+
     def refresh(self) -> None:
         response = self.session.post(f'{self.url}/auth/refresh', json={
             'access_token': self.access_token,
@@ -88,6 +91,12 @@ class Cursor:
         return None
         
     def close(self) -> None:
+        if self.access_token is None or self.refresh_token is None:
+            raise Exception("No active session to close.")
+        session_close_response = self.session.get(f'{self.url}/auth/disconnect')
+        if session_close_response.status_code != 200:
+            raise Exception(f"Failed to close session: {session_close_response.status_code} {session_close_response.text}")
+        
         self.session.close()
         self.last_result_file = None
         self.index = 0
