@@ -1,60 +1,116 @@
 from server.config.settings import STORAGE_FOLDER, BATCH_SIZE
-# from server.database.entities.column import Column
-# from server.database.entities.row import Row
-import time
 import os
-import json
 import csv
-from typing import Dict, Any, List
+from typing import Any
+from server.utils.query_utils import ExpressionNode
 
 class Table:
-    def __init__(self, table_name: str, db_name: str, columns_metedata: List[Dict[str, Any]]):
+    def __init__(self, table_name: str, db_name: str, columns_metadata: list[dict[str, Any]]):
         self.name = table_name
         self.csv_file = os.path.join(STORAGE_FOLDER, db_name, f'{table_name}.csv')
-        self.column_metadata = columns_metedata
+        self.column_metadata = columns_metadata
         self.rows = []
-        # self._load()
 
-    # def _load(self):
-    #     with open(self.csv_file, 'r') as f:
-    #         reader = csv.DictReader(f)
-    #         for row in reader:
-    #             self.rows.append(Row(row))
+        # Tạo dict ánh xạ tên cột đơn giản -> kiểu
+        self.column_types: dict[str, str] = {
+            meta['name']: meta['type'] for meta in self.column_metadata
+        }
 
-    
+    def cast(self, column: str, value: str) -> Any:
+        """Ép kiểu theo metadata (column là tên cột đơn giản)."""
+        col_type = self.column_types.get(column)
+        if col_type == "integer":
+            return int(value)
+        elif col_type == "float":
+            return float(value)
+        elif col_type == "string":
+            return value.strip()
+        else:
+            raise ValueError(f"Unsupported type '{col_type}' for column '{column}'")
 
-    def filter(self, rows, columns, ast):
-        # if columns is None or len(columns) == 0:
-        #     columns = [col.name for col in self.columns]
-        # rows = []
-        # for row in self.rows:
-        #     rows.append({col: row[col] for col in columns})
-        # # return [
-        # #     {col: row[col] for col in columns}
-        # #     for row in self.rows
-        # # ]
-        # 
-        return rows
-        # return [row.to_dict() for row in rows]
+    def evaluate_condition(self, row: dict[str, Any], ast_node: ExpressionNode) -> Any:
+        if ast_node is None:
+            return True
 
-    def query(self, columns: List[str], ast=None) -> List[Dict[str, Any]]:
-        if '*' in columns:
-            columns = [col.name for col in self.columns_metedata]
+        val = ast_node.value
 
-        # read the CSV file in batches
-        with open(self.csv_file, 'r') as f:
+        if ast_node.left is None and ast_node.right is None:
+            # Leaf node: column name or constant
+            if isinstance(val, str):
+                if val in row:
+                    return row[val]
+                elif val.replace('.', '', 1).isdigit():
+                    return float(val) if '.' in val else int(val)
+                return val.strip()
+            return val
+
+        if ast_node.right is None:  # Unary operator, e.g., NOT
+            return not self.evaluate_condition(row, ast_node.left)
+
+        left = self.evaluate_condition(row, ast_node.left)
+        right = self.evaluate_condition(row, ast_node.right)
+
+        match val.upper():
+            case "AND":
+                return left and right
+            case "OR":
+                return left or right
+            case "=":
+                return left == right
+            case "<>":
+                return left != right
+            case "!=":
+                return left != right
+            case ">":
+                return left > right
+            case "<":
+                return left < right
+            case ">=":
+                return left >= right
+            case "<=":
+                return left <= right
+            case "+":
+                return left + right
+            case "-":
+                return left - right
+            case "*":
+                return left * right
+            case "/":
+                return left / right
+            case "%":
+                return left % right
+            case _:
+                raise ValueError(f"Unsupported operator: {val}")
+
+    def filter(self, rows: list[dict[str, str]], columns: list[str], ast: ExpressionNode) -> list[dict[str, Any]]:
+        selected = []
+
+        for row in rows:
+            casted_row = {
+                col: self.cast(col, val) for col, val in row.items()
+            }
+
+            if ast is None or self.evaluate_condition(casted_row, ast):
+                if columns == ["*"]:
+                    selected.append(casted_row)
+                else:
+                    selected.append({col: casted_row[col] for col in columns})
+
+        return selected
+
+    def query(self, columns: list[str], ast: ExpressionNode = None):
+        if columns == ["*"]:
+            columns = [meta['name'] for meta in self.column_metadata]
+
+        with open(self.csv_file, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             rows = []
+
             for row in reader:
-                # filter the row based on the columns
                 rows.append(row)
                 if len(rows) >= BATCH_SIZE:
-                    print(self.filter(rows, columns, ast))
                     yield self.filter(rows, columns, ast)
                     rows = []
+
             if rows:
                 yield self.filter(rows, columns, ast)
-
-        return 
-        
-    
