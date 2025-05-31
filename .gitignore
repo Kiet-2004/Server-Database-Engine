@@ -185,7 +185,6 @@ dbengine-env/
 
 .vscode/
 src/tests/last_result.csv
-last_result.csv
 src/server/database/storage/CompanyDB/employees.csv
 src/tests/test_dbapi2.py
 src/server/database/storage/CRM

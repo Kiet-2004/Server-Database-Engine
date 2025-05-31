@@ -32,4 +32,4 @@ DB_NAMES = [
    'social_media'
 ]
 
-BATCH_SIZE = 128
+BATCH_SIZE = 1024

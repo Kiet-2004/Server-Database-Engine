@@ -1,13 +1,9 @@
 import os
 import json
-import aiofiles
+from multiprocessing import Pool, cpu_count
 from typing import Any
 from server.config.settings import STORAGE_FOLDER, BATCH_SIZE
 from server.utils.query_utils import ExpressionNode
-
-import asyncio
-from multiprocessing import Pool, cpu_count
-
 
 def process_rows_batch(args):
     rows_batch, columns, column_types, ast_node = args
@@ -15,14 +11,18 @@ def process_rows_batch(args):
 
     def cast(col_type, val):
         if col_type == "integer":
+            if val == '':
+                return 0
             return int(val)
         elif col_type == "float":
+            if val == '':
+                return 0.0
             return float(val)
         elif col_type == "string":
             return val.strip()
         return val
 
-    def evaluate(row, node):
+    def evaluate(row, node: ExpressionNode):
         if node is None:
             return True
         val = node.value
@@ -88,44 +88,38 @@ def process_rows_batch(args):
 class Table:
     def __init__(self, table_name: str, db_name: str, columns_metadata: list[dict[str, Any]]):
         self.name = table_name
-        self.csv_file = os.path.join(STORAGE_FOLDER, db_name, f'{table_name}.csv')
+        self.csv_file = os.path.join(STORAGE_FOLDER, db_name, f"{table_name}.csv")
         self.column_metadata = columns_metadata
-        self.column_types: dict[str, str] = {
-            meta['name']: meta['type'] for meta in self.column_metadata
-        }
+        self.column_types = {meta["name"]: meta["type"] for meta in self.column_metadata}
 
-    async def query(self, columns: list[str], ast: ExpressionNode = None):
+    def query(self, columns: list[str], ast: ExpressionNode = None):
         if columns == ["*"]:
-            columns = [meta['name'] for meta in self.column_metadata]
+            columns = [meta["name"] for meta in self.column_metadata]
 
-        async with aiofiles.open(self.csv_file, 'r') as f:
-            header_line = await f.readline()
-            headers = [h.strip() for h in header_line.strip().split(',')]
+        with Pool(processes = cpu_count()) as pool:
+            with open(self.csv_file, "r") as f:
+                header_line = f.readline().strip()
+                headers = [h.strip() for h in header_line.split(",")]
 
-            batch = []
-            batch_size = BATCH_SIZE
-            pool = Pool(processes = cpu_count())
+                batch = []
+                batch_size = BATCH_SIZE
 
-            async for line in f:
-                values = [v.strip() for v in line.strip().split(',')]
-                row_dict = dict(zip(headers, values))
-                batch.append(row_dict)
+                for line in f:
+                    values = [v.strip() for v in line.strip().split(",")]
+                    row_dict = dict(zip(headers, values))
+                    batch.append(row_dict)
 
-                if len(batch) >= batch_size:
-                    async for row in self._process_batch(pool, batch, columns, ast):
-                        yield row
-                    batch.clear()
+                    if len(batch) >= batch_size:
+                        args = (batch, columns, self.column_types, ast)
+                        # pool.map nhận danh sách các args; ở đây chỉ truyền một batch tại một lần
+                        all_batches_results = pool.map(process_rows_batch, [args])
+                        for row in all_batches_results[0]:
+                            yield json.dumps(row)
+                        batch.clear()
 
-            if batch:
-                async for row in self._process_batch(pool, batch, columns, ast):
-                    yield row
-
-            pool.close()
-            pool.join()
-
-    async def _process_batch(self, pool, batch: list[dict[str, str]], columns: list[str], ast: ExpressionNode):
-        loop = asyncio.get_running_loop()
-        args = (batch, columns, self.column_types, ast)
-        results = await loop.run_in_executor(None, lambda: process_rows_batch(args))
-        for row in results:
-            yield json.dumps(row)
+                # Xử lý batch còn lại nếu có
+                if batch:
+                    args = (batch, columns, self.column_types, ast)
+                    all_batches_results = pool.map(process_rows_batch, [args])
+                    for row in all_batches_results[0]:
+                        yield json.dumps(row)

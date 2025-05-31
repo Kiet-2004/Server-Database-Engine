@@ -18,7 +18,7 @@ async def query(
     if not request.query:
         raise http_exc_400_query_empty_bad_request()
 
-    user_query = request.query.lower()
+    user_query = request.query
     query_stream = db_controlller.query(
             user_name=current_user.user_name,
             query=user_query,
@@ -27,7 +27,7 @@ async def query(
     async def stream_response():
         yield '['
         first = True
-        async for row in query_stream:
+        for row in query_stream:
             if not first:
                 yield ',\n'
             else:
