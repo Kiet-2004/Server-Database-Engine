@@ -20,7 +20,16 @@ SERVER_FOLDER = os.path.dirname(SETTINGS_DIR)
 STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
 
 DB_NAMES = [
-   'CompanyDB'
+   'CRM',
+   'ecommerce',
+   'financial',
+   'hospital',
+   'human_resources',
+   'inventory',
+   'project_management',
+   'real_estate',
+   'SMS',
+   'social_media'
 ]
 
-BATCH_SIZE = 10
+BATCH_SIZE = 128
