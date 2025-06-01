@@ -7,17 +7,17 @@ from dbapi2.connect import connect
 async def main():
     start_time_1 = time.time()
     async with await connect(
-        url="http://127.0.0.1:8000",
-        username="string",
-        password="stringst",
-        db_name="CRM"
+        url = "http://127.0.0.1:8000",
+        username = "string",
+        password = "stringst",
+        db_name = "CRM"
     ) as conn:
         start_time_2 = time.time()
         print(f"Connection time: {start_time_2 - start_time_1} (s)")
         cursor = conn.cursor()
         start_time_3 = time.time()
         print(f"Creating cursor time: {start_time_3 - start_time_2} (s)")
-        await cursor.execute("SELECT * from CRM.campaigns where CRM.campaigns.CampaignID > 1000")
+        await cursor.execute("SELECT * from CRM.campaigns where CRM.campaigns.CampaignID > 1001")
         start_time_4 = time.time()
         print(f"Executing time: {start_time_4 - start_time_3} (s)")
         result = cursor.fetchone()

@@ -31,5 +31,3 @@ DB_NAMES = [
    'SMS',
    'social_media'
 ]
-
-BATCH_SIZE = 1024
