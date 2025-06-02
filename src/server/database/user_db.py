@@ -1,15 +1,9 @@
-import csv
 from pydantic import BaseModel
-import os
-from server.config.settings import STORAGE_FOLDER, USER_DB
+from server.config.settings import USER_DB
 from server.utils.exceptions import dpapi2_exception
-
-import csv
 import os
 from typing import Optional
-from pydantic import BaseModel
 import aiofiles
-import asyncio
 from filelock import FileLock
 
 class User(BaseModel):
