@@ -1,7 +1,7 @@
 from server.database.entities.db import DB
 from server.config.settings import DB_NAMES
 from server.utils.exceptions import dpapi2_exception
-from server.utils.query_utils import AST, LogicalValidator
+from server.database.entities.ast import AST
 
 class DatabaseEngine:
     def __init__(self):
@@ -43,46 +43,24 @@ class DatabaseEngine:
             return {"message": f"User {user_name} disconnected successfully."}
         else:
             raise dpapi2_exception.DatabaseError(f"User {user_name} is not connected to any database.")
-        
-    def query(self, user_name: str, columns: list[str], table_name: str, ast: AST = None):
-        try:
-            # Truy cập DB và metadata ngay từ đầu
-            db = self.get_db(user_name)
-            metadata = db.meta_data
+    
+    def get_metadata(self, user_name: str):
+        """
+        Get metadata for the database the user is connected to.
+        """
 
-            # Dùng LogicalValidator để xác thực và chuẩn hóa logic truy vấn
-            validator = LogicalValidator(metadata)
-            columns, table_name, ast = validator.validate_logic(
-                columns = columns,
-                table = table_name,
-                condition_ast = ast
-            )
+        db = self.get_db(user_name)
+        return db.meta_data
 
-            # Lấy bảng đã được xác thực tên và truy vấn
-            table = db.get_table(table_name)
-            if not table:
-                raise dpapi2_exception.DatabaseError(
-                    f"Table '{table_name}' not found in database '{db.db_name}'."
-                )
 
-            rows = table.query(columns, ast)
-            return rows
+    def query_execute(self, db_name: str, columns: list[str], table_name: str, ast: AST = None):
 
-        except dpapi2_exception.ProgrammingError as e:
-            raise e
-        except (
-            dpapi2_exception.InterfaceError,
-            dpapi2_exception.DatabaseError,
-            dpapi2_exception.DataError,
-            dpapi2_exception.OperationalError,
-            dpapi2_exception.IntegrityError,
-            dpapi2_exception.InternalError,
-            dpapi2_exception.NotSupportedError,
-        ) as e:
-            raise e
-        except Exception as e:
-            raise dpapi2_exception.InternalError(
-                f"Unexpected error querying table '{table_name}': {e}"
-            ) from e
+        # Lấy bảng đã được xác thực tên và truy vấn
+        db = self.db_pool.get(db_name)
+        table = db.get_table(table_name)
+
+        rows = table.select(columns, ast)
+        return rows
+
             
 engine = DatabaseEngine()

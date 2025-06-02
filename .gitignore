@@ -184,16 +184,6 @@ dbengine-env/
 .gitignore
 
 .vscode/
-src/tests/last_result.csv
-src/server/database/storage/CompanyDB/employees.csv
 src/tests/test_dbapi2.py
-src/server/database/storage/CRM
-src/server/database/storage/ecommerce
-src/server/database/storage/financial
-src/server/database/storage/hospital
-src/server/database/storage/human_resources
-src/server/database/storage/inventory
-src/server/database/storage/project_management
-src/server/database/storage/real_estate
-src/server/database/storage/SMS
-src/server/database/storage/social_media
+src/server/database/storage/
+src/tests/last_result.csv

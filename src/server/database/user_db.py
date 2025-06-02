@@ -1,33 +1,67 @@
 import csv
 from pydantic import BaseModel
 import os
-from server.config import settings
+from server.config.settings import STORAGE_FOLDER, USER_DB
+from server.utils.exceptions import dpapi2_exception
+
+import csv
+import os
+from typing import Optional
+from pydantic import BaseModel
+import aiofiles
+import asyncio
+from filelock import FileLock
 
 class User(BaseModel):
     user_name: str
     hashed_password: str
 
 class UserDB:
-    def __init__(self, data_file = "user.csv") -> None:
+    def __init__(self, data_file: Optional[str] = None) -> None:
+        if not data_file:
+            self.data_file = USER_DB
+        else:
+            self.data_file = data_file
+        
+        self.lock_file = f"{self.data_file}.lock"
 
-        self.data_file = os.path.join(settings.STORAGE_FOLDER, data_file)
-        with open(self.data_file, 'r') as file:
-            reader = csv.DictReader(file)
-            self.data = [User(user_name=row['user_name'], hashed_password=row['password']) for row in reader]
+    async def get_user(self, user_name: str) -> Optional[User]:
+        try:
+            async with aiofiles.open(self.data_file, mode='r') as file:
+                header = await file.readline()
+                # Skip if file is empty
+                if not header.strip():
+                    return None
 
-    def get_user(self, user_name: str) -> User | None:
-        for user in self.data:
-            if user.user_name == user_name:
-                return user
+                async for line in file:
+                    row = line.strip().split(",")
+                    if len(row) < 2:
+                        continue
+                    name, password = row
+                    if name == user_name:
+                        return User(user_name=name, hashed_password=password)
+        except FileNotFoundError:
+            raise dpapi2_exception.OperationalError("User database file not found.")
+        except Exception as e:
+            raise dpapi2_exception.OperationalError(f"An error occurred while reading the user database: {str(e)}")
         return None
     
-    def add_user(self, user_name: str, password: str) -> User | None:
-        user = User(user_name=user_name, hashed_password=password)
-        self.data.append(user)
-        with open(self.data_file, 'a', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=["user_name", "hashed_password"])
-            writer.writerow({"user_name": user.user_name, "hashed_password": user.hashed_password})
-            file.close()
-        return user
+    async def add_user(self, user_name: str, password: str) -> User:
+        # FileLock is blocking, so we wrap it in a thread executor
+        def write_to_file():
+            try:
+                with FileLock(self.lock_file):
+                    file_exists = os.path.exists(self.data_file)
+                    write_header = not file_exists or os.path.getsize(self.data_file) == 0
+                    with open(self.data_file, mode='a', newline='') as file:
+                        if write_header:
+                            file.write("user_name,hashed_password\n")
+                        file.write(f"{user_name},{password}\n")
+            except OSError as e:
+                raise dpapi2_exception.OperationalError(f"File write failed: {e}")
+
+        from asyncio import to_thread
+        await to_thread(write_to_file)
+        return User(user_name=user_name, hashed_password=password)
 
 USER_DATABASE = UserDB()

@@ -6,7 +6,7 @@ from server.config.settings import SECRET_KEY, ALGORITHM
 from server.database.user_db import USER_DATABASE as UserDB
 from server.utils.security import *
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -22,12 +22,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except jwt.PyJWTError:
         raise credentials_exception
 
-    query = UserDB.get_user(user_name=username) 
+    query = await UserDB.get_user(user_name=username) 
     if query is None:
         raise credentials_exception
     return query
 
-def refresh_access_token(access_token: str, refresh_token: str):
+async def refresh_access_token(access_token: str, refresh_token: str):
     # Check if access token is expired
     if not is_access_token_expired(access_token):
         raise HTTPException(
@@ -37,7 +37,7 @@ def refresh_access_token(access_token: str, refresh_token: str):
     
     # Verify refresh token
     username = verify_refresh_token(refresh_token)
-    user = UserDB.get_user(user_name=username)  # Assuming UserDB is defined
+    user = await UserDB.get_user(user_name=username)  # Assuming UserDB is defined
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
