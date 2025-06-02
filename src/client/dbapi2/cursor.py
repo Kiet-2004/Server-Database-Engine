@@ -1,8 +1,10 @@
-import requests
-import csv 
+import httpx
+import csv
+from dbapi2.exceptions import InterfaceError, DatabaseError, DataError, OperationalError, IntegrityError, InternalError, ProgrammingError, NotSupportedError
+from collections.abc import Iterator
 
 class Cursor:
-    def __init__(self, url: str, access_token: str, refresh_token: str, db_name: str, session: requests.Session) -> None:
+    def __init__(self, url: str, access_token: str, refresh_token: str, db_name: str, session: httpx.AsyncClient) -> None:
         self.url = url
         self.headers = {
             'Content-Type': 'application/json',
@@ -20,8 +22,8 @@ class Cursor:
         self.array_iterator = None
         self.headers = None
 
-    def refresh(self) -> None:
-        response = self.session.post(f'{self.url}/auth/refresh', json={
+    async def refresh(self) -> None:
+        response = await self.session.post(f'{self.url}/auth/refresh', json={
             'access_token': self.access_token,
             'refresh_token': self.refresh_token
         })
@@ -34,10 +36,10 @@ class Cursor:
                 'Refresh-Token': self.refresh_token
             })
         else:
-            raise Exception(f"Failed to refresh tokens: {response.status_code} {response.text}")
+            raise InterfaceError(f"Failed to refresh tokens: {response.status_code} {response.text}")
         
-    def execute(self, query, path: str = ".") -> None:
-        response = self.session.post(f'{self.url}/queries/', json={
+    async def execute(self, query, path: str = ".") -> None:
+        response = await self.session.post(f'{self.url}/queries/', json={
             'db_name': self.db_name,
             'query': query
         })
@@ -52,18 +54,17 @@ class Cursor:
                         csv_writer.writerow(item.keys())
                         flag = False
                     csv_writer.writerow(item.values())
-            
+                
             self.array_iterator = self._file_generator()
-                    
         elif response.status_code == 401:
-            self.refresh()
-            self.execute(query)
+            await self.refresh()
+            await self.execute(query)
         else:
-            raise Exception(f"Query execution failed: {response. status_code} {response.text}")
+            raise DatabaseError(f"Query execution failed: {response.status_code} {response.text}")
         
-    def _file_generator(self):
+    def _file_generator(self) -> Iterator[dict]:
         if self.last_result_file is None:
-            raise Exception("No query executed yet.")
+            raise ProgrammingError("No query executed yet.")
 
         with open(self.last_result_file, 'r') as file:
             csv_reader = csv.reader(file)
@@ -76,7 +77,7 @@ class Cursor:
         
     def fetchone(self) -> dict | None:
         if self.last_result_file is None:
-            raise Exception("No query executed yet.")
+            raise ProgrammingError("No query executed yet.")
         try:
             result = next(self.array_iterator)
             return result
@@ -85,7 +86,7 @@ class Cursor:
     
     def fetchmany(self, size: int = 1) -> list[dict] | None:
         if self.last_result_file is None:
-            raise Exception("No query executed yet.")
+            raise ProgrammingError("No query executed yet.")
         
         results = []
         try:
@@ -98,7 +99,7 @@ class Cursor:
 
     def fetchall(self) -> list[dict] | None:
         if self.last_result_file is None:
-            raise Exception("No query executed yet.")
+            raise ProgrammingError("No query executed yet.")
         
         results = []
         try:
@@ -107,4 +108,3 @@ class Cursor:
                 results.append(result)
         except StopIteration:
             return results if results else None
-    
