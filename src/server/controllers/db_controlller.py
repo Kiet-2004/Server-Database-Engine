@@ -4,18 +4,12 @@ from server.database.entities.logical_validator import LogicalValidator
 from server.database.entities.sql_parser import SQLParser
 
 # Main function to process a user's SQL query.
-def query(user_name: str, query: str):
+def query_execute(user_name: str, query: str):
 
     db_metadata = engine.get_metadata(user_name=user_name)
 
     parser = SQLParser()
-    try:
-        # Parse the SQL query string.
-        parsed = parser.parse_query(query)
-    except dpapi2_exception.ProgrammingError as e:
-        # Re-raise programming errors related to SQL syntax.
-        raise e
-
+    parsed = parser.parse_query(query)
     # Extract parsed components.
     columns, tables, condition_ast = parsed["columns"], parsed["tables"], parsed["condition_ast"]
 
@@ -32,12 +26,11 @@ def query(user_name: str, query: str):
         condition_ast = condition_ast
     )
 
-
-    return engine.query(
+    return engine.query_execute(
         db_name=list(db_metadata.keys())[0],  # Assuming single database per user.
         columns = columns,
         table_name = table_name,
-        ast = condition_ast
+        ast = ast
     )
 
     

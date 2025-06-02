@@ -18,8 +18,10 @@ SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_FOLDER = os.path.dirname(SETTINGS_DIR)
 
 STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
+USER_DB = os.path.join(STORAGE_FOLDER, 'user.csv')
 
 DB_NAMES = [
+   'CompanyDB',
    'CRM',
    'ecommerce',
    'financial',

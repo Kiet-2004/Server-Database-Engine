@@ -53,13 +53,13 @@ class DatabaseEngine:
         return db.meta_data
 
 
-    def query(self, db_name: str, columns: list[str], table_name: str, ast: AST = None):
+    def query_execute(self, db_name: str, columns: list[str], table_name: str, ast: AST = None):
 
         # Lấy bảng đã được xác thực tên và truy vấn
         db = self.db_pool.get(db_name)
         table = db.get_table(table_name)
 
-        rows = table.query(columns, ast)
+        rows = table.select(columns, ast)
         return rows
 
             

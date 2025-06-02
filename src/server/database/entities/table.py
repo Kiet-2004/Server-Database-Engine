@@ -97,7 +97,7 @@ class Table:
             return None
 
 
-    async def query(self, columns: list[str], ast=None):
+    async def select(self, columns: list[str], ast=None):
         if columns == ["*"]:
             columns = [meta['name'] for meta in self.column_metadata]
 
@@ -110,7 +110,6 @@ class Table:
                 async for line in f:
                     values = [v.strip() for v in line.strip().split(',')]
                     row_dict = dict(zip(headers, values))
-                    # await asyncio.sleep(1)
 
                     filtered = self.filter(row_dict, columns, ast)
                     if filtered is not None:
