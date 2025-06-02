@@ -1,9 +1,13 @@
 from server.database.db_engine import engine
 from server.utils.exceptions import dpapi2_exception
-from server.utils.query_utils import SQLParser
+from server.database.entities.logical_validator import LogicalValidator
+from server.database.entities.sql_parser import SQLParser
 
 # Main function to process a user's SQL query.
 def query(user_name: str, query: str):
+
+    db_metadata = engine.get_metadata(user_name=user_name)
+
     parser = SQLParser()
     try:
         # Parse the SQL query string.
@@ -13,36 +17,29 @@ def query(user_name: str, query: str):
         raise e
 
     # Extract parsed components.
-    columns = parsed["columns"]
-    tables = parsed["tables"]
-    condition_ast = parsed["condition_ast"]
+    columns, tables, condition_ast = parsed["columns"], parsed["tables"], parsed["condition_ast"]
 
     # Currently, only single table queries are supported (no joins).
     if len(tables) > 1:
         raise dpapi2_exception.NotSupportedError("Joins between multiple tables are not supported")
+    table_name = tables[0] # Get the single table_name name.
 
-    table = tables[0] # Get the single table name.
+    # Dùng LogicalValidator để xác thực và chuẩn hóa logic truy vấn
+    validator = LogicalValidator(db_metadata)
+    columns, table_name, ast = validator.validate_logic(
+        columns = columns,
+        table = table_name,
+        condition_ast = condition_ast
+    )
 
-    try:
-        # Call the database engine's query method with the parsed components.
-        return engine.query(
-            user_name = user_name,
-            columns = columns,
-            table_name = table,
-            ast = condition_ast
-        )
-    except (
-        dpapi2_exception.InterfaceError,
-        dpapi2_exception.DatabaseError,
-        dpapi2_exception.DataError,
-        dpapi2_exception.OperationalError,
-        dpapi2_exception.IntegrityError,
-        dpapi2_exception.InternalError,
-        dpapi2_exception.ProgrammingError,
-        dpapi2_exception.NotSupportedError,
-    ) as e:
-        # Re-raise any database-related exceptions.
-        raise e
+
+    return engine.query(
+        db_name=list(db_metadata.keys())[0],  # Assuming single database per user.
+        columns = columns,
+        table_name = table_name,
+        ast = condition_ast
+    )
+
     
 def disconnect_user(user_name: str):
     """

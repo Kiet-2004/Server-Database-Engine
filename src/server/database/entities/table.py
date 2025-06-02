@@ -3,8 +3,8 @@ import os
 import json
 import aiofiles
 from typing import Any
-from server.utils.query_utils import ExpressionNode
- 
+from server.database.entities.ast import ExpressionNode
+from server.utils.exceptions import dpapi2_exception
 class Table:
     def __init__(self, table_name: str, db_name: str, columns_metadata: list[dict[str, Any]]):
         self.name = table_name
@@ -83,7 +83,7 @@ class Table:
             case _:
                 raise ValueError(f"Unsupported operator: {val}")
  
-    def filter(self, row: dict[str, str], columns: list[str], ast: ExpressionNode) -> list[dict[str, Any]]:
+    def filter(self, row: dict[str, Any], columns: list[str], ast: ExpressionNode | None) ->dict[str, Any] | None:
         casted_row = {
             col: self.cast(col, val) for col, val in row.items()
         }
@@ -102,15 +102,20 @@ class Table:
             columns = [meta['name'] for meta in self.column_metadata]
 
         # read the CSV file in batches
-        async with aiofiles.open(self.csv_file, 'r') as f:
-            # Read the header line first
-            header_line = await f.readline()
-            headers = [h.strip() for h in header_line.strip().split(',')]
-            async for line in f:
-                values = [v.strip() for v in line.strip().split(',')]
-                row_dict = dict(zip(headers, values))
-                # await asyncio.sleep(1)
+        try:
+            async with aiofiles.open(self.csv_file, 'r') as f:
+                # Read the header line first
+                header_line = await f.readline()
+                headers = [h.strip() for h in header_line.strip().split(',')]
+                async for line in f:
+                    values = [v.strip() for v in line.strip().split(',')]
+                    row_dict = dict(zip(headers, values))
+                    # await asyncio.sleep(1)
 
-                filtered = self.filter(row_dict, columns, ast)
-                if filtered is not None:
-                    yield json.dumps(filtered)
+                    filtered = self.filter(row_dict, columns, ast)
+                    if filtered is not None:
+                        yield json.dumps(filtered)
+        except FileNotFoundError:
+            raise dpapi2_exception.OperationalError(f"File '{self.csv_file}' not found for table '{self.name}'.")
+        except Exception as e:
+            raise dpapi2_exception.InternalError(f"Unexpected error querying table '{self.name}': {e}") from e
