@@ -21,7 +21,7 @@ STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
 USER_DB = os.path.join(STORAGE_FOLDER, 'user.csv')
 
 DB_NAMES = [
-   'CompanyDB',
+   # 'CompanyDB',
    'CRM',
    'ecommerce',
    'financial',

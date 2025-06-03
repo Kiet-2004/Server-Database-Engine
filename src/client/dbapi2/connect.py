@@ -20,8 +20,8 @@ class Connect:
         self.headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            # 'Authorization': f'Bearer {self.access_token}',
-            # 'Refresh-Token': self.refresh_token
+            'Authorization': f'Bearer {self.access_token}',
+            'Refresh-Token': self.refresh_token
         }
         self.session = httpx.AsyncClient(headers=self.headers, timeout=30.0)
         self.cursor_list = []
