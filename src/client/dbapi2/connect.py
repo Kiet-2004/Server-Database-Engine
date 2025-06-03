@@ -98,7 +98,7 @@ class Connect:
         self.access_token = None
         self.refresh_token = None
 
-async def connect(url: str, username: str, password: str, db_name: str) -> Connect:
+def connect(url: str, username: str, password: str, db_name: str) -> Connect:
     """Establish a new database connection.
 
     Args:
@@ -128,8 +128,8 @@ async def connect(url: str, username: str, password: str, db_name: str) -> Conne
         'client_secret': ''
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as session:
-        response = await session.post(full_url, params=params, headers=headers, data=data)
+    with httpx.Client(timeout=30.0) as session:
+        response = session.post(full_url, params=params, headers=headers, data=data)
         if response.status_code == 200:
             data = response.json()
             return Connect(
