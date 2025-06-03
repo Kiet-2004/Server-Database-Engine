@@ -3,6 +3,7 @@ from server.config.settings import USER_DB
 from server.utils.exceptions import dpapi2_exception
 import os
 from typing import Optional
+from asyncio import to_thread
 import aiofiles
 from filelock import FileLock
 
@@ -54,7 +55,6 @@ class UserDB:
             except OSError as e:
                 raise dpapi2_exception.OperationalError(f"File write failed: {e}")
 
-        from asyncio import to_thread
         await to_thread(write_to_file)
         return User(user_name=user_name, hashed_password=password)
 
