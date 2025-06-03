@@ -23,17 +23,11 @@ class Connect:
             'Authorization': f'Bearer {self.access_token}',
             'Refresh-Token': self.refresh_token
         }
-        self.session = httpx.AsyncClient(headers=self.headers, timeout=30.0)
+        self.session = httpx.Client(headers=self.headers, timeout=30.0)
 
-    async def __aenter__(self):
-        """Enter the async context, ensuring the session is initialized."""
-        if self.session is None:
-            self.session = httpx.AsyncClient(headers=self.headers, timeout=30.0)
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        """Exit the async context, closing the session."""
-        await self.close()
+    def __del__(self) -> None:
+        """Ensure the session is closed when the connection object is deleted."""
+        self.close()
 
     def cursor(self) -> Cursor:
         """Create and return a new cursor for executing queries.
@@ -53,7 +47,7 @@ class Connect:
             session=httpx.AsyncClient(timeout=30.0)
         )
 
-    async def refresh(self) -> None:
+    def refresh(self) -> None:
         """Refresh the access and refresh tokens.
 
         Raises:
@@ -61,7 +55,7 @@ class Connect:
         """
         if self.session is None:
             raise InterfaceError("Session not initialized.")
-        response = await self.session.post(f'{self.url}/auth/refresh', json={
+        response = self.session.post(f'{self.url}/auth/refresh', json={
             'access_token': self.access_token,
             'refresh_token': self.refresh_token
         })
@@ -77,23 +71,22 @@ class Connect:
         else:
             raise exception_handler(response.json())
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the connection and its session.
 
         Raises:
             InterfaceError: If no active session exists.
             OperationalError: If session closure fails.
         """
-        if self.access_token is None or self.refresh_token is None:
-            raise InterfaceError("No active session to close.")
-        if self.session is None:
-            raise InterfaceError("Session not initialized.")
+        if self.access_token is None or self.refresh_token is None or self.session is None:
+            return
+            
 
-        response = await self.session.get(f'{self.url}/auth/disconnect')
+        response = self.session.get(f'{self.url}/auth/disconnect')
         if response.status_code != 200:
             raise exception_handler(response.json())
 
-        await self.session.aclose()
+        self.session.close()
         self.session = None
         self.access_token = None
         self.refresh_token = None
