@@ -5,16 +5,16 @@ class LogicalValidator:
     def __init__(self, metadata: dict[str, dict[str, list[dict[str, str]]]]):
         self.metadata = metadata
         self.tables = {}  # key: table_name, value: (db_name, table_metadata)
-
+ 
     def _validate_from(self, db_name: str, tables: list[str]):
         if db_name not in self.metadata:
             raise dpapi2_exception.ProgrammingError(f"Database '{db_name}' not found.")
         db_meta = self.metadata[db_name]
-
+ 
         for table in tables:
             if table not in db_meta:
                 raise dpapi2_exception.ProgrammingError(f"Table '{table}' not found in database '{db_name}'.")
-
+ 
             # Convert schema list to dict: {column_name: type}
             schema_list = db_meta[table]
             schema_dict = {col["name"]: col["type"] for col in schema_list}
@@ -64,7 +64,7 @@ class LogicalValidator:
 
         else:
             raise dpapi2_exception.ProgrammingError(f"Invalid column format: '{col}'")
-
+ 
     def _get_column_type(self, full_col: str) -> str:
         db_name, table_name, col = full_col.split(".")
         schema_list = self.metadata[db_name][table_name]
@@ -72,7 +72,7 @@ class LogicalValidator:
         if col not in schema:
             raise dpapi2_exception.ProgrammingError(f"Column '{col}' not found in schema of {db_name}.{table_name}")
         return schema[col]
-
+ 
     def _validate_condition_ast(self, node: ExpressionNode) -> str:
         if node.left is None and node.right is None:
             # Leaf node: identifier or literal
@@ -155,7 +155,7 @@ class LogicalValidator:
             table_name = parts[0]
         else:
             raise dpapi2_exception.ProgrammingError(f"Invalid table format: '{table}'")
-
+ 
         # 2. Validate FROM clause
         self._validate_from(db_name, [table_name])
 
@@ -183,9 +183,9 @@ class LogicalValidator:
             else:
                 rewrite_ast(node.left)
                 rewrite_ast(node.right)
-
+ 
         if condition_ast:
             self._validate_condition_ast(condition_ast)
             rewrite_ast(condition_ast)
-
+ 
         return final_columns, table_name, condition_ast

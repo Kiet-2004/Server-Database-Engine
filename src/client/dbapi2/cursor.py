@@ -120,3 +120,4 @@ class Cursor:
             self.session = None
             self.last_result = None
             self.array_iterator = None
+            self.connection.close()
