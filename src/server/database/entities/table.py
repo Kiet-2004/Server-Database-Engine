@@ -120,7 +120,7 @@ class Table:
             try:
                 headers = next(reader)
             except StopIteration:
-                raise dpapi2_exception.ProgrammingError("CSV file is empty.")
+                raise dpapi2_exception.OperationalError("CSV file is empty.")
             headers = [h.strip() for h in headers]
             col_to_idx = {name: idx for idx, name in enumerate(headers)}
  
@@ -161,7 +161,7 @@ class Table:
             for col_name, idx in zip(select_cols, select_idxs):
                 col_type = type_map.get(col_name)
                 if col_type not in type_to_fn:
-                    raise dpapi2_exception.ProgrammingError(f"Unsupported column type '{col_type}' for column '{col_name}'.")
+                    raise dpapi2_exception.NotSupportedError(f"Unsupported column type '{col_type}' for column '{col_name}'.")
                 fn = type_to_fn[col_type]
                 cast_plan.append((idx, fn, col_name))
  
