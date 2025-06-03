@@ -27,7 +27,7 @@ def query_execute(user_name: str, query: str):
     )
 
     return engine.query_execute(
-        db_name=list(db_metadata.keys())[0],  # Assuming single database per user.
+        db_name = list(db_metadata.keys())[0],  # Assuming single database per user.
         columns = columns,
         table_name = table_name,
         ast = ast
