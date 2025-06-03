@@ -20,18 +20,6 @@ SERVER_FOLDER = os.path.dirname(SETTINGS_DIR)
 STORAGE_FOLDER = os.path.join(SERVER_FOLDER, 'database/storage')
 USER_DB = os.path.join(STORAGE_FOLDER, 'user.csv')
 
-DB_NAMES = [
-   # 'CompanyDB',
-   'CRM',
-   'ecommerce',
-   'financial',
-   'hospital',
-   'human_resources',
-   'inventory',
-   'project_management',
-   'real_estate',
-   'SMS',
-   'social_media'
-]
+DB_NAMES = [dir for dir in os.listdir(STORAGE_FOLDER) if os.path.isdir(os.path.join(STORAGE_FOLDER, dir))]
 
 BATCH_SIZE = 10

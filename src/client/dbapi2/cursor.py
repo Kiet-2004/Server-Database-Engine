@@ -1,5 +1,6 @@
 import httpx
-from dbapi2.exceptions import InterfaceError, DatabaseError, ProgrammingError
+from dbapi2.exceptions import exception_handler, InterfaceError, ProgrammingError
+from collections.abc import Iterator
 
 class Cursor:
     """A class to execute queries and fetch results from a database connection."""
@@ -32,6 +33,7 @@ class Cursor:
         if self.connection.session is None:
             raise InterfaceError("Session not initialized or closed.")
 
+        
         response = await self.session.post(f'{self.url}/queries/', json={
             'db_name': self.db_name,
             'query': query
@@ -49,7 +51,9 @@ class Cursor:
             self.session.headers = self.connection.headers
             await self.execute(query)
         else:
-            raise DatabaseError(f"Query execution failed: {response.status_code} {response.text}")
+            await self.close()
+            raise exception_handler(response.json())
+
 
     def fetchone(self) -> dict | None:
         """Fetch the next result row.

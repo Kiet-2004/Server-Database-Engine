@@ -1,6 +1,6 @@
 from server.database.entities.ast import ExpressionNode
 from server.utils.exceptions import dpapi2_exception
- 
+
 class LogicalValidator:
     def __init__(self, metadata: dict[str, dict[str, list[dict[str, str]]]]):
         self.metadata = metadata
@@ -19,7 +19,7 @@ class LogicalValidator:
             schema_list = db_meta[table]
             schema_dict = {col["name"]: col["type"] for col in schema_list}
             self.tables[table] = (db_name, schema_dict)
- 
+
     def _validate_column(self, col: str) -> str:
         parts = col.split('.')
         if len(parts) == 1:
@@ -35,7 +35,7 @@ class LogicalValidator:
                     f"Ambiguous column '{col}' found in multiple tables: {matches}"
                 )
             return matches[0]
- 
+
         elif len(parts) == 2:
             # Qualified as table.column
             table_name, colname = parts
@@ -45,7 +45,7 @@ class LogicalValidator:
             if colname not in schema:
                 raise dpapi2_exception.ProgrammingError(f"Column '{colname}' not found in table '{table_name}'.")
             return f"{db}.{table_name}.{colname}"
- 
+
         elif len(parts) == 3:
             # Fully qualified as db.table.column
             db_name, table_name, colname = parts
@@ -99,22 +99,22 @@ class LogicalValidator:
                 return "integer" if isinstance(node.value, int) else "float"
             else:
                 raise dpapi2_exception.ProgrammingError(f"Unknown literal or identifier: {node.value}")
- 
+
         elif node.value == "NOT":
             operand_type = self._validate_condition_ast(node.left)
             if operand_type != "bool":
                 raise dpapi2_exception.ProgrammingError("NOT operator requires boolean operand")
             return "bool"
- 
+
         else:
             left_type = self._validate_condition_ast(node.left)
             right_type = self._validate_condition_ast(node.right)
- 
+
             if node.value in ("AND", "OR"):
                 if left_type != "bool" or right_type != "bool":
                     raise dpapi2_exception.ProgrammingError(f"{node.value} requires boolean operands")
                 return "bool"
- 
+
             elif node.value in ("=", "!=", "<>", "<", ">", "<=", ">="):
                 if left_type != right_type and not (
                     {"integer", "float"} == {left_type, right_type}
@@ -123,22 +123,22 @@ class LogicalValidator:
                         f"Incompatible types in comparison: {left_type} {node.value} {right_type}"
                     )
                 return "bool"
- 
+
             elif node.value in ("+", "-", "*", "/", "%"):
                 if left_type not in ("integer", "float") or right_type not in ("integer", "float"):
                     raise dpapi2_exception.ProgrammingError(
                         f"Arithmetic operator '{node.value}' requires numeric operands"
                     )
                 return "float" if "float" in (left_type, right_type) else "integer"
- 
+
             else:
                 raise dpapi2_exception.ProgrammingError(f"Unknown operator: {node.value}")
- 
+
     def validate_logic(self, columns: list[str], table: str, condition_ast: ExpressionNode | None):
         # 1. Parse and validate table (ensure db_name matches metadata)
         parts = table.split(".")
         metadata_dbs = list(self.metadata.keys())
- 
+
         if len(parts) == 2:
             user_db_name, table_name = parts
             if user_db_name not in self.metadata:
@@ -158,7 +158,7 @@ class LogicalValidator:
  
         # 2. Validate FROM clause
         self._validate_from(db_name, [table_name])
- 
+
         # 3. Normalize columns
         if columns == ["*"]:
             final_columns = ["*"]
@@ -167,7 +167,7 @@ class LogicalValidator:
             for col in columns:
                 full = self._validate_column(col)  # raises if invalid
                 final_columns.append(full.split(".")[-1])  # only keep column_name
- 
+
         # 4. Validate and rewrite AST
         def rewrite_ast(node: ExpressionNode | None):
             if node is None:

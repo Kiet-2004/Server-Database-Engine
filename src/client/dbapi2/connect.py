@@ -1,6 +1,6 @@
 import httpx
 from dbapi2.cursor import Cursor
-from dbapi2.exceptions import InterfaceError, OperationalError
+from dbapi2.exceptions import InterfaceError, OperationalError, exception_handler
 
 class Connect:
     """A class to manage database connections using an HTTP-based API."""
@@ -24,7 +24,6 @@ class Connect:
             'Refresh-Token': self.refresh_token
         }
         self.session = httpx.AsyncClient(headers=self.headers, timeout=30.0)
-        self.cursor_list = []
 
     async def __aenter__(self):
         """Enter the async context, ensuring the session is initialized."""
@@ -47,14 +46,12 @@ class Connect:
         """
         if self.session is None:
             raise InterfaceError("Session not initialized.")
-        cursor = Cursor(
+        return Cursor(
             url=self.url,
             connection=self,
             db_name=self.db_name,
-            session=httpx.AsyncClient(timeout=300)
+            session=httpx.AsyncClient(timeout=30.0)
         )
-        self.cursor_list.append(cursor)
-        return cursor
 
     async def refresh(self) -> None:
         """Refresh the access and refresh tokens.
@@ -77,14 +74,11 @@ class Connect:
                 'Refresh-Token': self.refresh_token
             })
             self.session.headers = self.headers
-            # Update headers for all cursors
-            for cursor in self.cursor_list:
-                cursor.session.headers = self.headers
         else:
-            raise InterfaceError(f"Failed to refresh tokens: {response.status_code} {response.text}")
+            raise exception_handler(response.json())
 
     async def close(self) -> None:
-        """Close the connection and all associated cursors.
+        """Close the connection and its session.
 
         Raises:
             InterfaceError: If no active session exists.
@@ -97,11 +91,7 @@ class Connect:
 
         response = await self.session.get(f'{self.url}/auth/disconnect')
         if response.status_code != 200:
-            raise OperationalError(f"Failed to close session: {response.status_code} {response.text}")
-
-        for cursor in self.cursor_list:
-            await cursor.close()
-        self.cursor_list.clear()
+            raise exception_handler(response.json())
 
         await self.session.aclose()
         self.session = None
@@ -149,4 +139,4 @@ async def connect(url: str, username: str, password: str, db_name: str) -> Conne
                 db_name=db_name
             )
         else:
-            raise InterfaceError(f'Connection failed: {response.status_code} {response.text}')
+            raise exception_handler(response.json())
