@@ -1,110 +1,118 @@
 import httpx
-import csv
-from dbapi2.exceptions import InterfaceError, DatabaseError, DataError, OperationalError, IntegrityError, InternalError, ProgrammingError, NotSupportedError
-from collections.abc import Iterator
+from dbapi2.exceptions import InterfaceError, DatabaseError, ProgrammingError
 
 class Cursor:
-    def __init__(self, url: str, access_token: str, refresh_token: str, db_name: str, session: httpx.AsyncClient) -> None:
-        self.url = url
-        self.headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        self.session = session
-        self.access_token = access_token
-        self.refresh_token = refresh_token
-        self.session.headers.update({
-            'Authorization': f'Bearer {self.access_token}',
-            'Refresh-Token': self.refresh_token
-        })
-        self.db_name = db_name
-        self.last_result_file = None
-        self.array_iterator = None
-        self.headers = None
+    """A class to execute queries and fetch results from a database connection."""
+    def __init__(self, url: str, connection: 'Connect', db_name: str, session: httpx.AsyncClient) -> None:
+        """Initialize the cursor with the provided connection and session.
 
-    async def refresh(self) -> None:
-        response = await self.session.post(f'{self.url}/auth/refresh', json={
-            'access_token': self.access_token,
-            'refresh_token': self.refresh_token
-        })
-        if response.status_code == 200:
-            data = response.json()
-            self.access_token = data['access_token']
-            self.refresh_token = data['refresh_token']
-            self.session.headers.update({
-                'Authorization': f'Bearer {self.access_token}',
-                'Refresh-Token': self.refresh_token
-            })
-        else:
-            raise InterfaceError(f"Failed to refresh tokens: {response.status_code} {response.text}")
-        
-    async def execute(self, query, path: str = ".") -> None:
+        Args:
+            url (str): The base URL of the database API.
+            connection (Connect): The parent connection instance.
+            db_name (str): The name of the database.
+            session (httpx.AsyncClient): The HTTP client session.
+        """
+        self.url = url
+        self.connection = connection
+        self.db_name = db_name
+        self.session = session
+        self.last_result = None
+        self.array_iterator = None
+
+    async def execute(self, query: str) -> None:
+        """Execute a query and store the results in memory.
+
+        Args:
+            query (str): The query to execute.
+
+        Raises:
+            InterfaceError: If the session is not initialized.
+            DatabaseError: If the query execution fails.
+        """
+        if self.connection.session is None:
+            raise InterfaceError("Session not initialized or closed.")
+
         response = await self.session.post(f'{self.url}/queries/', json={
             'db_name': self.db_name,
             'query': query
+        }, headers={
+            "Content-Type": "application/json",
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {self.connection.access_token}',
+            'Refresh-Token': self.connection.refresh_token
         })
         if response.status_code == 200:
-            temp = response.json()
-            self.last_result_file = f"{path}/last_result.csv"
-            with open(self.last_result_file, 'w', newline="") as file:
-                csv_writer = csv.writer(file)
-                flag = True
-                for item in temp:
-                    if flag:
-                        csv_writer.writerow(item.keys())
-                        flag = False
-                    csv_writer.writerow(item.values())
-                
-            self.array_iterator = self._file_generator()
+            self.last_result = response.json()
+            self.array_iterator = iter(self.last_result)
         elif response.status_code == 401:
-            await self.refresh()
+            await self.connection.refresh()
+            self.session.headers = self.connection.headers
             await self.execute(query)
         else:
             raise DatabaseError(f"Query execution failed: {response.status_code} {response.text}")
-        
-    def _file_generator(self) -> Iterator[dict]:
-        if self.last_result_file is None:
-            raise ProgrammingError("No query executed yet.")
 
-        with open(self.last_result_file, 'r') as file:
-            csv_reader = csv.reader(file)
-            try:
-                self.headers = next(csv_reader)
-            except StopIteration:
-                return        
-            for row in csv_reader:
-                yield dict(zip(self.headers, row))
-        
     def fetchone(self) -> dict | None:
-        if self.last_result_file is None:
+        """Fetch the next result row.
+
+        Returns:
+            dict | None: The next row as a dictionary, or None if no more rows.
+
+        Raises:
+            ProgrammingError: If no query has been executed.
+        """
+        if self.last_result is None:
             raise ProgrammingError("No query executed yet.")
         try:
-            result = next(self.array_iterator)
-            return result
+            return next(self.array_iterator)
         except StopIteration:
             return None
-    
+
     def fetchmany(self, size: int = 1) -> list[dict] | None:
-        if self.last_result_file is None:
+        """Fetch the next set of rows of the specified size.
+
+        Args:
+            size (int): The number of rows to fetch (default: 1).
+
+        Returns:
+            list[dict] | None: A list of row dictionaries, or None if no more rows.
+
+        Raises:
+            ProgrammingError: If no query has been executed.
+        """
+        if self.last_result is None:
             raise ProgrammingError("No query executed yet.")
-        
+
         results = []
         try:
             for _ in range(size):
-                result = next(self.array_iterator)
-                results.append(result)
+                results.append(next(self.array_iterator))
             return results
         except StopIteration:
             return results if results else None
 
     def fetchall(self) -> list[dict] | None:
-        if self.last_result_file is None:
+        """Fetch all remaining rows.
+
+        Returns:
+            list[dict] | None: A list of all remaining row dictionaries, or None if no rows.
+
+        Raises:
+            ProgrammingError: If no query has been executed.
+        """
+        if self.last_result is None:
             raise ProgrammingError("No query executed yet.")
-        
+
         results = []
         try:
             while True:
-                result = next(self.array_iterator)
-                results.append(result)
+                results.append(next(self.array_iterator))
         except StopIteration:
             return results if results else None
+
+    async def close(self) -> None:
+        """Close the cursor and its session."""
+        if self.session is not None:
+            await self.session.aclose()
+            self.session = None
+            self.last_result = None
+            self.array_iterator = None
