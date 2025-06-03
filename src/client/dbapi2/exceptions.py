@@ -41,3 +41,25 @@ class ProgrammingError(DatabaseError):
 class NotSupportedError(DatabaseError):
     """Exception raised when the operation is not supported."""
     pass
+
+def exception_handler(content: dict):
+    if content["type"] == 'InterfaceError':
+        return InterfaceError(content["msg"])
+    elif content["type"] == 'DataError':
+        return DataError(content["msg"])
+    elif content["type"] == 'OperationalError':
+        return OperationalError(content["msg"])
+    elif content["type"] == 'IntegrityError':
+        return IntegrityError(content["msg"])
+    elif content["type"] == "InternalError":
+        return InternalError(content["msg"])
+    elif content["type"] == "ProgrammingError":
+        return ProgrammingError(content["msg"])
+    elif content["type"] == "NotSupportedError":
+        return NotSupportedError(content["msg"])
+    elif content["type"] == "DatabaseError":
+        return DatabaseError(content["msg"])
+    else:
+        return StandardError(str(content))
+    
+    
