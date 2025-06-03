@@ -6,16 +6,23 @@ import mmap
 from typing import Any, Callable
 from server.config.settings import STORAGE_FOLDER
 from server.database.entities.ast import ExpressionNode
+from server.utils.exceptions import dpapi2_exception
  
 # =========================================
 # Hàm cast module-level để tránh lỗi pickle hoặc exec lặp
 # =========================================
  
 def cast_int(raw: str) -> int:
-    return int(raw) if raw != "" else 0
+    try:
+        return int(raw) if raw != "" else 0
+    except ValueError as e:
+        raise dpapi2_exception.DataError(f"Cannot cast '{raw}' to integer.") from e
  
 def cast_float(raw: str) -> float:
-    return float(raw) if raw != "" else 0.0
+    try:
+        return float(raw) if raw != "" else 0.0
+    except ValueError as e:
+        raise dpapi2_exception.DataError(f"Cannot cast '{raw}' to float.") from e
  
 def cast_string(raw: str) -> str:
     return raw.strip()
@@ -32,16 +39,28 @@ class MMapReader(io.RawIOBase):
         return True
  
     def read(self, size: int = -1) -> bytes:
-        return self.mm.read(size)
+        try:
+            return self.mm.read(size)
+        except (ValueError, BufferError) as e:
+            raise dpapi2_exception.InternalError("Error reading from memory-mapped file.") from e
  
     def readline(self, size: int = -1) -> bytes:
-        return self.mm.readline(size)
+        try:
+            return self.mm.readline(size)
+        except (ValueError, BufferError) as e:
+            raise dpapi2_exception.InternalError("Error reading line from memory-mapped file.") from e
  
     def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
-        return self.mm.seek(offset, whence)
+        try:
+            return self.mm.seek(offset, whence)
+        except (ValueError, OSError) as e:
+            raise dpapi2_exception.InterfaceError("Error seeking in memory-mapped file.") from e
  
     def tell(self) -> int:
-        return self.mm.tell()
+        try:
+            return self.mm.tell()
+        except (ValueError, OSError) as e:
+            raise dpapi2_exception.InternalError("Error getting position in memory-mapped file.") from e
  
     def close(self) -> None:
         # Khi đóng wrapper, chúng ta không đóng mmap ngay—để bên ngoài chủ động đóng mmap.
@@ -65,9 +84,16 @@ class Table:
         """
         Mở file CSV dưới dạng memory-mapped; trả về mmap object đọc-only.
         """
-        fd = os.open(self.csv_path, os.O_RDONLY)
-        # length=0 để ánh xạ toàn bộ file
-        mm = mmap.mmap(fd, length=0, access=mmap.ACCESS_READ)
+        try:
+            fd = os.open(self.csv_path, os.O_RDONLY)
+        except OSError as e:
+            raise dpapi2_exception.OperationalError(f"Cannot open CSV file at '{self.csv_path}'.") from e
+        try:
+            # length=0 để ánh xạ toàn bộ file
+            mm = mmap.mmap(fd, length=0, access=mmap.ACCESS_READ)
+        except (ValueError, OSError) as e:
+            os.close(fd)
+            raise dpapi2_exception.InternalError(f"Cannot memory-map file '{self.csv_path}'.") from e
         os.close(fd)
         return mm
  
@@ -78,88 +104,104 @@ class Table:
  
         Trả về một generator, mỗi yield là JSON string (đã lọc + cast).
         """
- 
-        # 1) Mở mmap và bọc thành TextIOWrapper để dùng csv.reader
-        mm = self._open_mmap()
-        mmap_reader = MMapReader(mm)
-        text_stream = io.TextIOWrapper(mmap_reader, encoding="utf-8", newline="")
-        reader = csv.reader(text_stream)
- 
-        # Đọc header
         try:
-            headers = next(reader)
-        except StopIteration:
-            text_stream.close()
-            mm.close()
-            raise ValueError("CSV file is empty.")
-        headers = [h.strip() for h in headers]
-        col_to_idx = {name: idx for idx, name in enumerate(headers)}
+            mm = self._open_mmap()
+            mmap_reader = MMapReader(mm)
+            text_stream = io.TextIOWrapper(mmap_reader, encoding="utf-8", newline="")
+            reader = csv.reader(text_stream)
+        except dpapi2_exception.Error:
+            # Đã convert thành DBAPI2 exception trong _open_mmap hoặc MMapReader
+            raise
+        except Exception as e:
+            raise dpapi2_exception.OperationalError("Error initializing CSV reader.") from e
  
-        # 2) Kiểm tra metadata cover tất cả header
-        for col in headers:
-            if col not in self.column_types:
-                text_stream.close()
-                mm.close()
-                raise ValueError(f"Column '{col}' missing in metadata.")
- 
-        # 3) Xây dựng row_filter từ AST (nếu có)
-        if ast is not None:
-            expr_str = self._ast_to_python_expr(ast, col_to_idx, self.column_types)
-            code = f"def row_filter(vals):\n    return {expr_str}"
-            namespace: dict[str, Any] = {}
-            exec(code, namespace)
-            row_filter = namespace["row_filter"]
-        else:
-            row_filter = lambda vals: True
- 
-        # 4) Xác định select_cols và select_idxs, rồi build cast_plan
-        if columns == ["*"]:
-            select_cols = headers[:]
-        else:
-            select_cols = columns[:]
-            for c in select_cols:
-                if c not in col_to_idx:
-                    text_stream.close()
-                    mm.close()
-                    raise ValueError(f"Selected column '{c}' not in CSV header.")
-        select_idxs = [col_to_idx[c] for c in select_cols]
- 
-        # Build cast_plan: mỗi phần tử là (idx_in_row, cast_fn, column_name)
-        cast_plan: list[tuple[int, Callable[[str], Any], str]] = []
-        type_map = self.column_types
-        type_to_fn = self._type_to_cast_fn
-        for col_name, idx in zip(select_cols, select_idxs):
-            fn = type_to_fn[type_map[col_name]]
-            cast_plan.append((idx, fn, col_name))
- 
-        # 5) Duyệt từng dòng qua csv.reader, filter + cast rồi yield JSON
-        local_filter = row_filter
-        local_cast_plan = cast_plan
-        local_select_cols = select_cols
- 
-        for vals in reader:
-            # Nếu row rỗng hoặc thiếu cột, bỏ qua
-            if not vals or len(vals) < len(headers):
-                continue
- 
-            # Áp dụng filter
+        try:
+            # Đọc header
             try:
-                if not local_filter(vals):
+                headers = next(reader)
+            except StopIteration:
+                raise dpapi2_exception.OperationalError("CSV file is empty.")
+            headers = [h.strip() for h in headers]
+            col_to_idx = {name: idx for idx, name in enumerate(headers)}
+ 
+            # Kiểm tra metadata cover tất cả header
+            for col in headers:
+                if col not in self.column_types:
+                    raise dpapi2_exception.ProgrammingError(f"Column '{col}' missing in metadata.")
+ 
+            # Xây dựng row_filter từ AST (nếu có)
+            if ast is not None:
+                try:
+                    expr_str = self._ast_to_python_expr(ast, col_to_idx, self.column_types)
+                    code = f"def row_filter(vals):\n    return {expr_str}"
+                    namespace: dict[str, Any] = {}
+                    exec(code, namespace)
+                    row_filter = namespace["row_filter"]
+                except dpapi2_exception.ProgrammingError:
+                    raise
+                except Exception as e:
+                    raise dpapi2_exception.ProgrammingError("Error compiling WHERE expression.") from e
+            else:
+                row_filter = lambda vals: True
+ 
+            # Xác định select_cols và select_idxs, rồi build cast_plan
+            if columns == ["*"]:
+                select_cols = headers[:]
+            else:
+                select_cols = columns[:]
+                for c in select_cols:
+                    if c not in col_to_idx:
+                        raise dpapi2_exception.ProgrammingError(f"Selected column '{c}' not in CSV header.")
+            select_idxs = [col_to_idx[c] for c in select_cols]
+ 
+            # Build cast_plan: mỗi phần tử là (idx_in_row, cast_fn, column_name)
+            cast_plan: list[tuple[int, Callable[[str], Any], str]] = []
+            type_map = self.column_types
+            type_to_fn = self._type_to_cast_fn
+            for col_name, idx in zip(select_cols, select_idxs):
+                col_type = type_map.get(col_name)
+                if col_type not in type_to_fn:
+                    raise dpapi2_exception.NotSupportedError(f"Unsupported column type '{col_type}' for column '{col_name}'.")
+                fn = type_to_fn[col_type]
+                cast_plan.append((idx, fn, col_name))
+ 
+            # 5) Duyệt từng dòng qua csv.reader, filter + cast rồi yield JSON
+            for vals in reader:
+                # Nếu row rỗng hoặc thiếu cột
+                if not vals or len(vals) < len(headers):
                     continue
-            except Exception:
-                continue
  
-            # Nếu thỏa điều kiện, cast theo cast_plan
+                # Áp dụng filter
+                try:
+                    passed = row_filter(vals)
+                except Exception as e:
+                    raise dpapi2_exception.ProgrammingError("Error evaluating WHERE filter.") from e
+                if not passed:
+                    continue
+ 
+                # Cast theo cast_plan
+                try:
+                    typed_vals = [cast_fn(vals[idx]) for idx, cast_fn, _ in cast_plan]
+                except dpapi2_exception.DataError:
+                    # Casting từng cột đã raise DataError nếu lỗi, propagate
+                    raise
+                except Exception as e:
+                    raise dpapi2_exception.DataError("Error casting row values.") from e
+ 
+                # Build output map và yield
+                out = dict(zip(select_cols, typed_vals))
+                yield json.dumps(out)
+ 
+        finally:
+            # Đóng TextIOWrapper và mmap khi kết thúc hoặc lỗi
             try:
-                typed_vals = [cast_fn(vals[idx]) for idx, cast_fn, _ in local_cast_plan]
-                out = dict(zip(local_select_cols, typed_vals))
+                text_stream.close()
             except Exception:
-                continue
-            yield json.dumps(out)
- 
-        # Đóng TextIOWrapper và mmap khi kết thúc
-        text_stream.close()
-        mm.close()
+                pass
+            try:
+                mm.close()
+            except Exception:
+                pass
  
     def _ast_to_python_expr(self, node: Any, col_to_idx: dict[str,int], column_types: dict[str,str]) -> str:
         """
@@ -169,6 +211,7 @@ class Table:
             # Leaf node
             if n.left is None and n.right is None:
                 v = n.value
+                # Nếu là identifier (cột)
                 if isinstance(v, str) and v in col_to_idx:
                     idx = col_to_idx[v]
                     ctype = column_types[v]
@@ -176,13 +219,18 @@ class Table:
                         return f"(int(vals[{idx}]) if vals[{idx}] != '' else 0)"
                     elif ctype == "float":
                         return f"(float(vals[{idx}]) if vals[{idx}] != '' else 0.0)"
-                    else:
+                    elif ctype == "string":
                         return f"(vals[{idx}].strip())"
+                    else:
+                        raise dpapi2_exception.ProgrammingError(f"Unsupported column type '{ctype}' for '{v}'.")
+                # Nếu là literal số
                 if isinstance(v, (int, float)):
                     return repr(v)
-                if isinstance(v, str):
-                    return repr(v)
-                raise ValueError(f"Unsupported leaf in AST: {v!r}")
+                # Nếu là literal chuỗi (đã được bao ngoặc) -> node.value truyền vào phải là string đã loại nháy
+                if isinstance(v, str) and len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+                    return repr(v[1:-1])
+                # Không phải identifier hợp lệ hay literal hợp lệ
+                raise dpapi2_exception.ProgrammingError(f"Invalid literal or column '{v}'.")
  
             # Nếu chỉ có left (NOT)
             if n.right is None:
@@ -220,6 +268,6 @@ class Table:
             elif op == "%":
                 return f"(({left_s}) % ({right_s}))"
             else:
-                raise ValueError(f"Unsupported operator: {op}")
+                raise dpapi2_exception.NotSupportedError(f"Unsupported operator: {op}")
  
         return recurse(node)

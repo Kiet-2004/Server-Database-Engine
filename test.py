@@ -1,5 +1,5 @@
-from server.utils.exceptions import dpapi2_exception
-from server.database.entities.ast import AST
+from src.server.utils.exceptions import dpapi2_exception
+from src.server.database.entities.ast import AST
 import re
 
 class SQLParser:
@@ -89,9 +89,9 @@ class SQLParser:
             raise dpapi2_exception.ProgrammingError("Invalid comma placement in FROM clause")
         table_names = []
         for tbl in raw_tables:
-            # Allow 'table' hoặc 'database.table'
-            if not self._is_valid_table_name(tbl):
-                raise dpapi2_exception.ProgrammingError(f"Invalid table reference: '{tbl}'")
+            # Only allow simple identifiers (no schema.table.column, no aliases, no JOIN)
+            if not self._is_valid_identifier(tbl):
+                raise dpapi2_exception.ProgrammingError(f"Invalid table name: '{tbl}'")
             table_names.append(tbl)
 
         # 11. Build AST for WHERE clause if exists
@@ -234,22 +234,11 @@ class SQLParser:
             )
         else:
             return False
+        
+parser = SQLParser()
+query = "SELECT * FROM db.table.name where name > db.table1.id"
 
-    def _is_valid_table_name(self, tbl: str) -> bool:
-        """
-        Kiểm tra dạng table reference:
-        Cho phép:
-          - table
-          - database.table
-        Mỗi phần phải là identifier hợp lệ (_is_valid_identifier).
-        """
-        parts = tbl.split('.')
-        if len(parts) == 1:
-            # chỉ table
-            return self._is_valid_identifier(parts[0])
-        elif len(parts) == 2:
-            # database.table
-            db, table = parts
-            return self._is_valid_identifier(db) and self._is_valid_identifier(table)
-        else:
-            return False
+parsed = parser.parse_query(query)
+print(parsed["columns"])
+print(parsed["tables"])
+print(parsed["condition_ast"])
