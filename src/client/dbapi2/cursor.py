@@ -1,6 +1,6 @@
 import httpx
 from dbapi2.exceptions import exception_handler, InterfaceError, ProgrammingError
-from collections.abc import Iterator
+import ijson
 
 class Cursor:
     """A class to execute queries and fetch results from a database connection."""
@@ -17,8 +17,10 @@ class Cursor:
         self.connection = connection
         self.db_name = db_name
         self.session = session
-        self.last_result = None
         self.array_iterator = None
+
+    def __del__(self) -> None:
+        self.close()
 
     async def execute(self, query: str) -> None:
         """Execute a query and store the results in memory.
@@ -31,6 +33,7 @@ class Cursor:
             DatabaseError: If the query execution fails.
         """
         if self.connection.session is None:
+            self.connection.close()
             raise InterfaceError("Session not initialized or closed.")
 
         
@@ -44,14 +47,13 @@ class Cursor:
             'Refresh-Token': self.connection.refresh_token
         })
         if response.status_code == 200:
-            self.last_result = response.json()
-            self.array_iterator = iter(self.last_result)
+            self.array_iterator = self.array_iterator = ijson.items(response.content, 'item')
         elif response.status_code == 401:
             await self.connection.refresh()
             self.session.headers = self.connection.headers
             await self.execute(query)
         else:
-            await self.close()
+            self.connection.close()
             raise exception_handler(response.json())
 
 
@@ -64,7 +66,8 @@ class Cursor:
         Raises:
             ProgrammingError: If no query has been executed.
         """
-        if self.last_result is None:
+        if self.array_iterator is None:
+            self.connection.close()
             raise ProgrammingError("No query executed yet.")
         try:
             return next(self.array_iterator)
@@ -83,7 +86,8 @@ class Cursor:
         Raises:
             ProgrammingError: If no query has been executed.
         """
-        if self.last_result is None:
+        if self.array_iterator is None:
+            self.connection.close()
             raise ProgrammingError("No query executed yet.")
 
         results = []
@@ -103,7 +107,8 @@ class Cursor:
         Raises:
             ProgrammingError: If no query has been executed.
         """
-        if self.last_result is None:
+        if self.array_iterator is None:
+            self.connection.close()
             raise ProgrammingError("No query executed yet.")
 
         results = []
@@ -113,11 +118,9 @@ class Cursor:
         except StopIteration:
             return results if results else None
 
-    async def close(self) -> None:
+    def close(self) -> None:
         """Close the cursor and its session."""
         if self.session is not None:
-            await self.session.aclose()
+            # await self.session.aclose()
             self.session = None
-            self.last_result = None
             self.array_iterator = None
-            self.connection.close()
