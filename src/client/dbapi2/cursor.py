@@ -1,10 +1,12 @@
 import httpx
 from dbapi2.exceptions import exception_handler, InterfaceError, ProgrammingError
 import ijson
+import tempfile
+import os
 
 class Cursor:
     """A class to execute queries and fetch results from a database connection."""
-    def __init__(self, url: str, connection: 'Connect', db_name: str, session: httpx.AsyncClient) -> None:
+    def __init__(self, url: str, connection: 'Connect', db_name: str, session: httpx.AsyncClient, cursor_id: int) -> None:
         """Initialize the cursor with the provided connection and session.
 
         Args:
@@ -18,12 +20,14 @@ class Cursor:
         self.db_name = db_name
         self.session = session
         self.array_iterator = None
+        self.cursor_id = 1
+        self.temp_file_path = None
 
     def __del__(self) -> None:
         self.close()
 
     async def execute(self, query: str) -> None:
-        """Execute a query and store the results in memory.
+        """Execute a query and store the streaming JSON results in a temporary file.
 
         Args:
             query (str): The query to execute.
@@ -36,26 +40,39 @@ class Cursor:
             self.connection.close()
             raise InterfaceError("Session not initialized or closed.")
 
-        
-        response = await self.session.post(f'{self.url}/queries/', json={
-            'db_name': self.db_name,
-            'query': query
-        }, headers={
-            "Content-Type": "application/json",
-            'Accept': 'application/json',
-            'Authorization': f'Bearer {self.connection.access_token}',
-            'Refresh-Token': self.connection.refresh_token
-        })
-        if response.status_code == 200:
-            self.array_iterator = self.array_iterator = ijson.items(response.content, 'item')
-        elif response.status_code == 401:
-            await self.connection.refresh()
-            self.session.headers = self.connection.headers
-            await self.execute(query)
-        else:
-            self.connection.close()
-            raise exception_handler(response.json())
+        # Create a temporary file to store the streaming JSON response
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', encoding='utf-8', delete=False) as temp_file:
+            self.temp_file_path = temp_file.name
+            try:
+                # Stream the POST request
+                async with self.session.stream('POST', f'{self.url}/queries/', json={
+                    'db_name': self.db_name,
+                    'query': query
+                }, headers={
+                    "Content-Type": "application/json",
+                    'Accept': 'application/json',
+                    'Authorization': f'Bearer {self.connection.access_token}',
+                    'Refresh-Token': self.connection.refresh_token
+                }) as response:
+                    if response.status_code == 200:
+                        # Write streaming response as text to the temporary file
+                        async for chunk in response.aiter_text():
+                            temp_file.write(chunk)
+                        temp_file.flush()
+                    elif response.status_code == 401:
+                        await self.connection.refresh()
+                        self.session.headers = self.connection.headers
+                        await self.execute(query)
+                        return
+                    else:
+                        self.connection.close()
+                        raise exception_handler(response.json())
+            except Exception as e:
+                self.connection.close()
+                raise e
 
+        # Open the temporary file for reading and set up ijson generator
+        self.array_iterator = ijson.items(open(self.temp_file_path, 'r', encoding='utf-8'), 'item')
 
     def fetchone(self) -> dict | None:
         """Fetch the next result row.
@@ -119,8 +136,14 @@ class Cursor:
             return results if results else None
 
     def close(self) -> None:
-        """Close the cursor and its session."""
+        """Close the cursor, its session, and clean up the temporary file."""
         if self.session is not None:
-            # await self.session.aclose()
             self.session = None
+        if self.array_iterator is not None:
             self.array_iterator = None
+        if self.temp_file_path is not None:
+            try:
+                os.unlink(self.temp_file_path)
+            except OSError:
+                pass
+            self.temp_file_path = None
